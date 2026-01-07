@@ -1,0 +1,29 @@
+{
+  "XRPL_RPC_URL": "wss://s.altnet.rippletest.net:51233",
+  "wallets": [
+    {
+      "label": "ISSUER",
+      "address": "r4LH8kP5aCwPQSJSkEGZRjTehHoL65vND6",
+      "seed": "sEdT3qUr7jAoVphgroaie2zPbKU95vp",
+      "xrpBalance": 100
+    },
+    {
+      "label": "TREASURY",
+      "address": "rDm9RfBVUqwxT42WWKcv96tccnZ255UXQx",
+      "seed": "sEdVsijoqga5RCqpL5zUEWPvzyvboss",
+      "xrpBalance": 100
+    },
+    {
+      "label": "INVESTOR_A",
+      "address": "rKsA69rVm4VaaB1VMi4RsHvQsPzqHNT9Yp",
+      "seed": "sEd7rZMw5Azd4o8GcySJkmYDwffHhcp",
+      "xrpBalance": 100
+    },
+    {
+      "label": "INVESTOR_B",
+      "address": "rH4jaYYs2XrBYbL2hh3WYWXmYbvQy6v8Bg",
+      "seed": "sEd7amH3B19dqYLTYhpUMH3wx97vNcn",
+      "xrpBalance": 100
+    }
+  ]
+}

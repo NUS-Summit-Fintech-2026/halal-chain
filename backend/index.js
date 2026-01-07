@@ -75,11 +75,31 @@ app.get("/bonds/:id", async (req, res) => {
   res.json(bond);
 });
 
+// To get bond by code
+app.get("/bonds/code/:code", async (req, res) => {
+    const bond = await prisma.bond.findUnique({ where: { code: req.params.code } });
+    if (!bond) return res.status(404).json({ error: "Bond not found" });
+    res.json(bond);
+});
+
 // To update bond by ID
 app.put("/bonds/:id", async (req, res) => {
   try {
     const bond = await prisma.bond.update({
       where: { id: req.params.id },
+      data: req.body,
+    });
+    res.json(bond);
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+// To update bond by code
+app.put("/bonds/code/:code", async (req, res) => {
+  try {
+    const bond = await prisma.bond.update({
+      where: { code: req.params.code },
       data: req.body,
     });
     res.json(bond);
@@ -98,6 +118,16 @@ app.delete("/bonds/:id", async (req, res) => {
   }
 });
 
+// To delete bond by code
+app.delete("/bonds/code/:code", async (req, res) => {
+    try {
+        await prisma.bond.delete({ where: { code: req.params.code } });
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(400).json({ error: String(e) });
+    }
+});
+
 // To publish bond by ID (change status to PUBLISHED)
 app.post("/bonds/:id/publish", async (req, res) => {
   try {
@@ -111,115 +141,14 @@ app.post("/bonds/:id/publish", async (req, res) => {
   }
 });
 
-// To create an order
-app.post("/orders", async (req, res) => {
+// To publish bond by code (change status to PUBLISHED)
+app.post("/bonds/code/:code/publish", async (req, res) => {
   try {
-    const { bondId, buyerAddress, amountPay, amountReceive } = req.body;
-
-    const bond = await prisma.bond.findUnique({ where: { id: bondId } });
-    if (!bond) return res.status(404).json({ error: "Bond not found" });
-    if (bond.status !== "PUBLISHED") return res.status(400).json({ error: "Bond not published" });
-
-    const order = await prisma.order.create({
-      data: {
-        bondId,
-        buyerAddress,
-        amountPay: Number(amountPay),
-        amountReceive: Number(amountReceive),
-        status: "PENDING",
-      },
-      include: { bond: true, logs: true },
+    const bond = await prisma.bond.update({
+      where: { code: req.params.code },
+      data: { status: "PUBLISHED" },
     });
-
-    res.json(order);
-  } catch (e) {
-    res.status(400).json({ error: String(e) });
-  }
-});
-
-// To log a transaction for an order
-app.post("/orders/:id/tx", async (req, res) => {
-  try {
-    const { type, txHash, memoJson } = req.body;
-
-    if (!["PAY", "DELIVER"].includes(type)) {
-      return res.status(400).json({ error: "type must be PAY or DELIVER" });
-    }
-    if (!txHash) return res.status(400).json({ error: "txHash required" });
-
-    const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
-      include: { bond: true },
-    });
-    if (!order) return res.status(404).json({ error: "Order not found" });
-
-    const logType = type === "PAY" ? "SUKUK_BUY_PAY" : "SUKUK_BUY_DELIVER";
-
-    await prisma.txLog.create({
-      data: {
-        orderId: order.id,
-        type: logType,
-        txHash,
-        memoJson: memoJson ?? {},
-      },
-    });
-
-    const updated =
-      type === "PAY"
-        ? await prisma.order.update({
-            where: { id: order.id },
-            data: { payTxHash: txHash, status: "PAID" },
-            include: { bond: true, logs: true },
-          })
-        : await prisma.order.update({
-            where: { id: order.id },
-            data: { deliverTxHash: txHash, status: "DELIVERED" },
-            include: { bond: true, logs: true },
-          });
-
-    res.json(updated);
-  } catch (e) {
-    res.status(400).json({ error: String(e) });
-  }
-});
-
-// To get order by ID
-app.get("/orders/:id", async (req, res) => {
-  const order = await prisma.order.findUnique({
-    where: { id: req.params.id },
-    include: { bond: true, logs: true },
-  });
-  if (!order) return res.status(404).json({ error: "Order not found" });
-  res.json(order);
-});
-
-// To get all orders, optionally filtered by buyer address
-app.get("/orders", async (req, res) => {
-  const buyer = req.query.buyer;
-  const where = buyer ? { buyerAddress: String(buyer) } : {};
-  const orders = await prisma.order.findMany({
-    where,
-    include: { bond: true, logs: true },
-    orderBy: { createdAt: "desc" },
-  });
-  res.json(orders);
-});
-
-// To get portfolio info from XRPL
-app.get("/portfolio/:address", async (req, res) => {
-  try {
-    const c = await getXrplClient();
-    const r = await c.request({ command: "account_lines", account: req.params.address });
-
-    const lines = (r.result.lines || []).filter(
-      (l) => l.currency === RLUSD_HEX || l.currency === HSUKUK_HEX
-    );
-
-    res.json({
-      address: req.params.address,
-      tracked: { RLUSD_HEX, HSUKUK_HEX },
-      lines,
-    });
+    res.json(bond);
   } catch (e) {
     res.status(400).json({ error: String(e) });
   }

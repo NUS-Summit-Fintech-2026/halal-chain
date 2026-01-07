@@ -12,16 +12,10 @@ enum BondStatus {
   PUBLISHED
 }
 
-enum OrderStatus {
-  PENDING
-  PAID
-  DELIVERED
-  FAILED
-}
-
 model Bond {
   id            String     @id @default(cuid())
   name          String
+  code          String
   description   String
   profitRate    Float
   maturityTs    Int
@@ -34,38 +28,6 @@ model Bond {
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  orders        Order[]
-}
-
-model Order {
-  id            String      @id @default(cuid())
-  bondId        String
-  bond          Bond        @relation(fields: [bondId], references: [id])
-
-  buyerAddress  String
-  amountPay     Float
-  amountReceive Float
-
-  status        OrderStatus @default(PENDING)
-  payTxHash     String?
-  deliverTxHash String?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  logs          TxLog[]
-}
-
-model TxLog {
-  id        String   @id @default(cuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id])
-
-  type      String   // e.g., SUKUK_BUY_PAY / SUKUK_BUY_DELIVER / TRANSFER
-  txHash    String
-  memoJson  Json
-  createdAt DateTime @default(now())
 }
 
 model User {

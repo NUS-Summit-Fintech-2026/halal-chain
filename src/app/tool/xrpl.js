@@ -182,6 +182,116 @@ async function getTrustLines(client, address) {
   return response.result.lines;
 }
 
+/**
+ * Set up trust line for an account to receive tokens
+ */
+async function setupTrustLine(client, wallet, currencyCode, issuerAddress, limit) {
+  const trustSet = {
+    TransactionType: 'TrustSet',
+    Account: wallet.address,
+    LimitAmount: {
+      currency: currencyCode,
+      issuer: issuerAddress,
+      value: String(limit),
+    },
+  };
+
+  const prepared = await client.autofill(trustSet);
+  const signed = wallet.sign(prepared);
+  const result = await client.submitAndWait(signed.tx_blob);
+
+  if (result.result.meta.TransactionResult !== 'tesSUCCESS') {
+    throw new Error(`Trust line failed: ${result.result.meta.TransactionResult}`);
+  }
+
+  return result;
+}
+
+/**
+ * Create a sell offer on XRPL DEX
+ * Seller offers tokens in exchange for XRP
+ */
+async function createSellOffer(client, sellerWallet, currencyCode, issuerAddress, tokenAmount, xrpPricePerToken) {
+  const totalXrp = tokenAmount * xrpPricePerToken;
+
+  const offer = {
+    TransactionType: 'OfferCreate',
+    Account: sellerWallet.address,
+    // What we're selling (tokens)
+    TakerGets: {
+      currency: currencyCode,
+      issuer: issuerAddress,
+      value: String(tokenAmount),
+    },
+    // What we want in return (XRP in drops)
+    TakerPays: xrpl.xrpToDrops(totalXrp),
+  };
+
+  const prepared = await client.autofill(offer);
+  const signed = sellerWallet.sign(prepared);
+  const result = await client.submitAndWait(signed.tx_blob);
+
+  if (result.result.meta.TransactionResult !== 'tesSUCCESS') {
+    throw new Error(`Sell offer failed: ${result.result.meta.TransactionResult}`);
+  }
+
+  return {
+    type: 'SELL',
+    tokenAmount,
+    xrpTotal: totalXrp,
+    pricePerToken: xrpPricePerToken,
+    txHash: result.result.hash,
+  };
+}
+
+/**
+ * Create a buy offer on XRPL DEX
+ * Buyer offers XRP in exchange for tokens
+ */
+async function createBuyOffer(client, buyerWallet, currencyCode, issuerAddress, tokenAmount, xrpPricePerToken) {
+  const totalXrp = tokenAmount * xrpPricePerToken;
+
+  const offer = {
+    TransactionType: 'OfferCreate',
+    Account: buyerWallet.address,
+    // What we're paying (XRP in drops)
+    TakerGets: xrpl.xrpToDrops(totalXrp),
+    // What we want (tokens)
+    TakerPays: {
+      currency: currencyCode,
+      issuer: issuerAddress,
+      value: String(tokenAmount),
+    },
+  };
+
+  const prepared = await client.autofill(offer);
+  const signed = buyerWallet.sign(prepared);
+  const result = await client.submitAndWait(signed.tx_blob);
+
+  if (result.result.meta.TransactionResult !== 'tesSUCCESS') {
+    throw new Error(`Buy offer failed: ${result.result.meta.TransactionResult}`);
+  }
+
+  return {
+    type: 'BUY',
+    tokenAmount,
+    xrpTotal: totalXrp,
+    pricePerToken: xrpPricePerToken,
+    txHash: result.result.hash,
+  };
+}
+
+/**
+ * Get open offers for an account
+ */
+async function getOffers(client, address) {
+  const response = await client.request({
+    command: 'account_offers',
+    account: address,
+  });
+  return response.result.offers || [];
+}
+
 module.exports = {
   connect,
   createWallet,
@@ -190,6 +300,10 @@ module.exports = {
   tokenizeBond,
   getBalances,
   getTrustLines,
+  setupTrustLine,
+  createSellOffer,
+  createBuyOffer,
+  getOffers,
   stringToHex,
   TESTNET_URL,
 };

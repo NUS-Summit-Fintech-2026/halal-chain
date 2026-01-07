@@ -87,6 +87,47 @@ async function main() {
       console.log(`  ${line.currency}: limit=${line.limit}, balance=${line.balance}, issuer=${line.account}`);
     });
 
+    // Retrieve Buyers Info
+    let totalBuyerHoldings = 0;
+
+    if (walletInfo.buyers && walletInfo.buyers.length > 0) {
+      console.log('\n' + '='.repeat(60));
+      console.log('BUYER WALLETS');
+      console.log('='.repeat(60));
+
+      for (const buyerInfo of walletInfo.buyers) {
+        const buyerWallet = xrplTool.loadWallet(buyerInfo.seed);
+
+        console.log(`\n[${buyerInfo.id}]`);
+        console.log('Address:', buyerWallet.address);
+        console.log('Seed:', buyerInfo.seed);
+        console.log('Created:', buyerInfo.createdAt || 'N/A');
+
+        const buyerBalances = await xrplTool.getBalances(client, buyerWallet.address);
+        console.log('\nBalances:');
+        buyerBalances.forEach(bal => {
+          const issuerLabel = bal.issuer ? `(issuer: ${bal.issuer})` : '(native)';
+          console.log(`  ${bal.value} ${bal.currency} ${issuerLabel}`);
+        });
+
+        const buyerTrustLines = await xrplTool.getTrustLines(client, buyerWallet.address);
+        console.log('\nTrust Lines:');
+        buyerTrustLines.forEach(line => {
+          console.log(`  ${line.currency}: limit=${line.limit}, balance=${line.balance}`);
+        });
+
+        // Track buyer token holdings
+        const buyerTokenBalance = buyerBalances.find(
+          b => b.currency === walletInfo.bond.currencyCode && b.issuer === issuerWallet.address
+        );
+        if (buyerTokenBalance) {
+          totalBuyerHoldings += parseFloat(buyerTokenBalance.value);
+        }
+      }
+    } else {
+      console.log('\n[No buyers registered yet]');
+    }
+
     // Summary
     console.log('\n' + '='.repeat(60));
     console.log('SUMMARY');
@@ -95,16 +136,25 @@ async function main() {
     const tokenBalance = treasuryBalances.find(
       b => b.currency === walletInfo.bond.currencyCode && b.issuer === issuerWallet.address
     );
+    const treasuryHoldings = tokenBalance ? parseFloat(tokenBalance.value) : 0;
 
     console.log(`Bond: ${walletInfo.bond.name}`);
+    console.log(`Currency Code: ${walletInfo.bond.currencyCode}`);
     console.log(`Total Issued: ${walletInfo.bond.totalTokens}`);
-    console.log(`Treasury Holdings: ${tokenBalance ? tokenBalance.value : '0'}`);
-    console.log(`Tokens Sold: ${tokenBalance ? walletInfo.bond.totalTokens - parseFloat(tokenBalance.value) : walletInfo.bond.totalTokens}`);
+    console.log(`Treasury Holdings: ${treasuryHoldings}`);
+    console.log(`Buyer Holdings: ${totalBuyerHoldings}`);
+    console.log(`Tokens in Circulation: ${walletInfo.bond.totalTokens - treasuryHoldings}`);
+    console.log(`Number of Buyers: ${walletInfo.buyers ? walletInfo.buyers.length : 0}`);
 
     // Explorer links
     console.log('\n[XRPL Testnet Explorer]');
     console.log(`Issuer: https://testnet.xrpl.org/accounts/${issuerWallet.address}`);
     console.log(`Treasury: https://testnet.xrpl.org/accounts/${treasuryWallet.address}`);
+    if (walletInfo.buyers && walletInfo.buyers.length > 0) {
+      walletInfo.buyers.forEach(buyer => {
+        console.log(`${buyer.id}: https://testnet.xrpl.org/accounts/${buyer.address}`);
+      });
+    }
 
   } catch (error) {
     console.error('Error:', error.message);

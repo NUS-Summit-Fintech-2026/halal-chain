@@ -13,5 +13,13 @@
     "address": "rMgUVBst7Z4H9EiPwZ7EazperM86hJUJAc",
     "seed": "sEd7nqgYdSbjHYqRkaWTUq3gANhWhZw"
   },
-  "createdAt": "2026-01-07T08:41:59.788Z"
+  "createdAt": "2026-01-07T08:41:59.788Z",
+  "buyers": [
+    {
+      "id": "buyer_1",
+      "address": "rpzrhdnqCXMuPcSC8AUtDW7awUcLBfSVB6",
+      "seed": "sEdS6QeqdQGMJJLEFMdMe8tYRpmnRDA",
+      "createdAt": "2026-01-07T09:22:55.570Z"
+    }
+  ]
 }

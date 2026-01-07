@@ -1,116 +1,138 @@
 'use client';
 
-import { Card, Descriptions, Tag, Space, Button, Timeline } from 'antd';
-import { CopyOutlined, ExportOutlined } from '@ant-design/icons';
-import { message } from 'antd';
+import { Card, Button, Table, Space, Tag } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function TokenPage({ params }: { params: { uid: string } }) {
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    message.success('Copied to clipboard');
+interface Bond {
+  key: string;
+  name: string;
+  code: string;
+  status: 'draft' | 'active' | 'completed';
+  value: number;
+  maturityDate: string;
+  issuer: string;
+  expectedReturn: string;
+}
+
+export default function BondMarketplacePage() {
+  const router = useRouter();
+  
+  // Sample bonds data - only showing active bonds for marketplace
+  const [bonds] = useState<Bond[]>([
+    {
+      key: '1',
+      name: 'Government Sukuk 2026',
+      code: 'US092189AC02',
+      status: 'active',
+      value: 1000000,
+      maturityDate: '2026-12-31',
+      issuer: 'Ministry of Finance',
+      expectedReturn: '5% annually',
+    },
+    {
+      key: '2',
+      name: 'Corporate Green Bond 2027',
+      code: 'GB123456XY78',
+      status: 'active',
+      value: 2500000,
+      maturityDate: '2027-06-30',
+      issuer: 'Green Energy Corp',
+      expectedReturn: '6.5% annually',
+    },
+    {
+      key: '3',
+      name: 'Infrastructure Bond 2028',
+      code: 'INF789012ZW34',
+      status: 'active',
+      value: 5000000,
+      maturityDate: '2028-03-31',
+      issuer: 'National Infrastructure Bank',
+      expectedReturn: '7% annually',
+    },
+  ]);
+
+  const handleViewBond = (bondId: string) => {
+    router.push(`/bonds/trade/${bondId}`);
   };
+
+  const columns = [
+    {
+      title: 'Bond Name',
+      dataIndex: 'name',
+      key: 'name',
+      sorter: (a: Bond, b: Bond) => a.name.localeCompare(b.name),
+    },
+    {
+      title: 'Code',
+      dataIndex: 'code',
+      key: 'code',
+    },
+    {
+      title: 'Issuer',
+      dataIndex: 'issuer',
+      key: 'issuer',
+    },
+    {
+      title: 'Total Value (XRP)',
+      dataIndex: 'value',
+      key: 'value',
+      render: (value: number) => value.toLocaleString(),
+    },
+    {
+      title: 'Maturity Date',
+      dataIndex: 'maturityDate',
+      key: 'maturityDate',
+    },
+    {
+      title: 'Expected Return',
+      dataIndex: 'expectedReturn',
+      key: 'expectedReturn',
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => {
+        const colors = {
+          active: 'success',
+        };
+        return <Tag color={colors[status as keyof typeof colors]}>{status.toUpperCase()}</Tag>;
+      },
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, record: Bond) => (
+        <Space>
+          <Button 
+            type="primary"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewBond(record.key)}
+          >
+            View & Trade
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div style={{ marginLeft: 20, padding: '24px' }}>
       <Card 
         title={
-          <Space>
-            <span style={{ fontSize: '20px', fontWeight: 600 }}>
-              Token Details
-            </span>
-            <Tag color="green">Active</Tag>
-          </Space>
-        }
-        extra={
-          <Button icon={<ExportOutlined />}>
-            Export Details
-          </Button>
+          <span style={{ fontSize: '20px', fontWeight: 600 }}>
+            Bond Marketplace
+          </span>
         }
       >
-        <Descriptions 
-          bordered
-          column={2}
-          style={{ marginBottom: 32 }}
-        >
-          <Descriptions.Item label="Token UID" span={2}>
-            <Space>
-              {params.uid}
-              <Button 
-                type="link" 
-                icon={<CopyOutlined />}
-                onClick={() => handleCopy(params.uid)}
-              />
-            </Space>
-          </Descriptions.Item>
-          
-          <Descriptions.Item label="Bond Name">
-            Government Sukuk 2026
-          </Descriptions.Item>
-          <Descriptions.Item label="Issuer">
-            Ministry of Finance
-          </Descriptions.Item>
-          
-          <Descriptions.Item label="Owner Wallet">
-            <Space>
-              rN7n...4xQk
-              <Button 
-                type="link" 
-                icon={<CopyOutlined />}
-                onClick={() => handleCopy('rN7n7otQDd6FczFgLdVJB4')}
-              />
-            </Space>
-          </Descriptions.Item>
-          <Descriptions.Item label="Token Value">
-            100 RLUSD
-          </Descriptions.Item>
-          
-          <Descriptions.Item label="Purchase Date">
-            January 5, 2026
-          </Descriptions.Item>
-          <Descriptions.Item label="Maturity Date">
-            December 31, 2026
-          </Descriptions.Item>
-          
-          <Descriptions.Item label="Current Yield">
-            5% annually
-          </Descriptions.Item>
-          <Descriptions.Item label="Accrued Interest">
-            0.27 RLUSD
-          </Descriptions.Item>
-        </Descriptions>
-
-        <Card 
-          type="inner" 
-          title="Transaction History"
-          style={{ background: '#fafafa' }}
-        >
-          <Timeline
-            items={[
-              {
-                color: 'green',
-                children: (
-                  <>
-                    <p style={{ margin: 0, fontWeight: 500 }}>Token Purchased</p>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
-                      January 5, 2026 - 100 RLUSD
-                    </p>
-                  </>
-                ),
-              },
-              {
-                color: 'blue',
-                children: (
-                  <>
-                    <p style={{ margin: 0, fontWeight: 500 }}>Token Minted</p>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
-                      January 1, 2026
-                    </p>
-                  </>
-                ),
-              },
-            ]}
-          />
-        </Card>
+        <Table
+          columns={columns}
+          dataSource={bonds}
+          pagination={{ pageSize: 10 }}
+          style={{ marginTop: 16 }}
+        />
       </Card>
     </div>
   );

@@ -66,25 +66,10 @@ export default function Sidebar() {
             label: 'Manage Bonds',
           },
           {
-            key: '/bonds/publish',
-            icon: <UploadOutlined />,
-            label: 'Publish Bond',
-          },
-          {
-            key: '/bonds/purchase',
-            icon: <ShoppingCartOutlined />,
-            label: 'Purchase Bond',
-          },
-          {
             key: '/bonds/token',
             icon: <DollarOutlined />,
-            label: 'View Token',
-          },
-          {
-            key: '/bonds/table',
-            icon: <AppstoreOutlined />,
-            label: 'Price Table',
-          },
+            label: 'Bond Marketplace',
+          }
         ]}
       />
     </Sider>

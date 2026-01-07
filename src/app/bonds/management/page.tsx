@@ -1,8 +1,9 @@
 'use client';
 
 import { Card, Button, Table, Modal, Form, Input, Select, Space, Tag, Popconfirm, message, Upload } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UploadOutlined, FileOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UploadOutlined, FileOutlined, RocketOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { UploadFile, UploadProps } from 'antd';
 
 interface Bond {
@@ -16,6 +17,7 @@ interface Bond {
 }
 
 export default function BondsPage() {
+  const router = useRouter();
   const [bonds, setBonds] = useState<Bond[]>([
     {
       key: '1',
@@ -49,6 +51,11 @@ export default function BondsPage() {
   const handleDelete = (key: string) => {
     setBonds(bonds.filter(bond => bond.key !== key));
     message.success('Bond deleted successfully');
+  };
+
+  const handlePublish = (bond: Bond) => {
+    // Navigate to publish page with bond data
+    router.push(`/bonds/publish?bondId=${bond.key}`);
   };
 
   const handleSubmit = async () => {
@@ -131,7 +138,7 @@ export default function BondsPage() {
       key: 'code',
     },
     {
-      title: 'Value (RLUSD)',
+      title: 'Value (XRP)',
       dataIndex: 'value',
       key: 'value',
       render: (value: number) => value.toLocaleString(),
@@ -170,7 +177,7 @@ export default function BondsPage() {
       key: 'actions',
       render: (_: any, record: Bond) => (
         <Space>
-          <Button 
+          {/* <Button 
             type="link" 
             icon={<EyeOutlined />}
             onClick={() => {
@@ -181,7 +188,7 @@ export default function BondsPage() {
                   <div style={{ marginTop: 16 }}>
                     <p><strong>Name:</strong> {record.name}</p>
                     <p><strong>Code:</strong> {record.code}</p>
-                    <p><strong>Value:</strong> {record.value.toLocaleString()} RLUSD</p>
+                    <p><strong>Value:</strong> {record.value.toLocaleString()} XRP</p>
                     <p><strong>Maturity Date:</strong> {record.maturityDate}</p>
                     <p><strong>Status:</strong> {record.status.toUpperCase()}</p>
                     {record.documents && record.documents.length > 0 && (
@@ -200,7 +207,7 @@ export default function BondsPage() {
             }}
           >
             View
-          </Button>
+          </Button> */}
           <Button 
             type="link" 
             icon={<EditOutlined />}
@@ -208,6 +215,22 @@ export default function BondsPage() {
           >
             Edit
           </Button>
+          
+        {record.status === 'active' && (
+          <Button
+            type="primary"
+            icon={<RocketOutlined style={{ color: '#fff' }} />}
+            onClick={() => handlePublish(record)}
+            style={{
+              backgroundColor: '#1677ff', // AntD primary blue
+              borderColor: '#1677ff',
+              color: '#fff',
+            }}
+          >
+            Publish
+          </Button>
+        )}
+
           <Popconfirm
             title="Delete bond"
             description="Are you sure you want to delete this bond?"
@@ -283,12 +306,12 @@ export default function BondsPage() {
             label="Code"
             rules={[{ required: true, message: 'Please enter code' }]}
           >
-            <Input placeholder="e.g., Ministry of Finance" />
+            <Input placeholder="e.g., US092189AC02" />
           </Form.Item>
 
           <Form.Item
             name="value"
-            label="Total Value (RLUSD)"
+            label="Total Value (XRP)"
             rules={[{ required: true, message: 'Please enter value' }]}
           >
             <Input type="number" placeholder="e.g., 1000000" />

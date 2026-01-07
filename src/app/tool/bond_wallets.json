@@ -1,0 +1,17 @@
+{
+  "testnetUrl": "wss://s.altnet.rippletest.net:51233",
+  "bond": {
+    "name": "HALAL01",
+    "currencyCode": "48414C414C303100000000000000000000000000",
+    "totalTokens": 1000000
+  },
+  "issuer": {
+    "address": "rLHbC8J85YovaZS4Sykqko5X5rb4KWu9eZ",
+    "seed": "sEdSzJVWVd2DdSa3FYMkQkvhNzrWfGz"
+  },
+  "treasury": {
+    "address": "rMgUVBst7Z4H9EiPwZ7EazperM86hJUJAc",
+    "seed": "sEd7nqgYdSbjHYqRkaWTUq3gANhWhZw"
+  },
+  "createdAt": "2026-01-07T08:41:59.788Z"
+}

@@ -7,27 +7,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum WalletRole {
+  ISSUER
+  TREASURY
+}
+
+model Wallet {
+  id        String     @id @default(cuid())
+  role      WalletRole @unique
+  address   String     @unique
+  seed      String
+  createdAt DateTime   @default(now())
+}
+
 enum BondStatus {
   DRAFT
   PUBLISHED
 }
 
 model Bond {
-  id            String     @id @default(cuid())
-  name          String
-  code          String
-  description   String
-  profitRate    Float
-  maturityTs    Int
-  status        BondStatus @default(DRAFT)
+  id             String     @id @default(cuid())
+  name           String
+  description    String
+  code           String     @unique
+  currencyCode   String?
+  totalTokens    Int
+  status         BondStatus @default(DRAFT)
+  profitRate     Float
 
-  issuerAddress     String
-  treasuryAddress   String
-  sukukCurrencyHex  String
-  payCurrencyHex    String
+  issuerAddress   String
+  treasuryAddress String
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt      DateTime   @default(now())
 }
 
 model User {
@@ -37,4 +48,3 @@ model User {
   walletSeed    String
   createdAt     DateTime @default(now())
 }
-

@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BondStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  DELIVERED
+  FAILED
+}
+
+model Bond {
+  id            String     @id @default(cuid())
+  name          String
+  description   String
+  profitRate    Float
+  maturityTs    Int
+  status        BondStatus @default(DRAFT)
+
+  issuerAddress     String
+  treasuryAddress   String
+  sukukCurrencyHex  String
+  payCurrencyHex    String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orders        Order[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  bondId        String
+  bond          Bond        @relation(fields: [bondId], references: [id])
+
+  buyerAddress  String
+  amountPay     Float
+  amountReceive Float
+
+  status        OrderStatus @default(PENDING)
+  payTxHash     String?
+  deliverTxHash String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  logs          TxLog[]
+}
+
+model TxLog {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  type      String   // e.g., SUKUK_BUY_PAY / SUKUK_BUY_DELIVER / TRANSFER
+  txHash    String
+  memoJson  Json
+  createdAt DateTime @default(now())
+}

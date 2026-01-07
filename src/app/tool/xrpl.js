@@ -292,6 +292,43 @@ async function getOffers(client, address) {
   return response.result.offers || [];
 }
 
+/**
+ * Get order book for a token pair (Token <-> XRP)
+ * Returns both buy and sell offers
+ */
+async function getOrderBook(client, currencyCode, issuerAddress) {
+  // Get sell offers (people selling tokens for XRP)
+  const sellResponse = await client.request({
+    command: 'book_offers',
+    taker_gets: {
+      currency: currencyCode,
+      issuer: issuerAddress,
+    },
+    taker_pays: {
+      currency: 'XRP',
+    },
+    limit: 50,
+  });
+
+  // Get buy offers (people buying tokens with XRP)
+  const buyResponse = await client.request({
+    command: 'book_offers',
+    taker_gets: {
+      currency: 'XRP',
+    },
+    taker_pays: {
+      currency: currencyCode,
+      issuer: issuerAddress,
+    },
+    limit: 50,
+  });
+
+  return {
+    sells: sellResponse.result.offers || [],
+    buys: buyResponse.result.offers || [],
+  };
+}
+
 module.exports = {
   connect,
   createWallet,
@@ -304,6 +341,7 @@ module.exports = {
   createSellOffer,
   createBuyOffer,
   getOffers,
+  getOrderBook,
   stringToHex,
   TESTNET_URL,
 };

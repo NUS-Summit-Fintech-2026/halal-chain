@@ -367,6 +367,78 @@ async function getOpenOffers(address) {
 }
 
 /**
+ * Get order book for a token (all open buy and sell offers)
+ *
+ * @param {string} currencyCode - Token currency code
+ * @param {string} issuerAddress - Token issuer address
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function getOrderBook(currencyCode, issuerAddress) {
+  let client;
+
+  try {
+    client = await xrplTool.connect();
+    const orderBook = await xrplTool.getOrderBook(client, currencyCode, issuerAddress);
+
+    // Parse sell offers
+    const sells = orderBook.sells.map(offer => {
+      const tokenAmount = typeof offer.TakerGets === 'object'
+        ? parseFloat(offer.TakerGets.value)
+        : parseFloat(offer.TakerGets) / 1000000;
+      const xrpAmount = typeof offer.TakerPays === 'object'
+        ? parseFloat(offer.TakerPays.value)
+        : parseFloat(offer.TakerPays) / 1000000;
+
+      return {
+        account: offer.Account,
+        tokenAmount: tokenAmount,
+        xrpAmount: xrpAmount,
+        pricePerToken: xrpAmount / tokenAmount,
+        sequence: offer.Sequence,
+      };
+    });
+
+    // Parse buy offers
+    const buys = orderBook.buys.map(offer => {
+      const xrpAmount = typeof offer.TakerGets === 'object'
+        ? parseFloat(offer.TakerGets.value)
+        : parseFloat(offer.TakerGets) / 1000000;
+      const tokenAmount = typeof offer.TakerPays === 'object'
+        ? parseFloat(offer.TakerPays.value)
+        : parseFloat(offer.TakerPays) / 1000000;
+
+      return {
+        account: offer.Account,
+        tokenAmount: tokenAmount,
+        xrpAmount: xrpAmount,
+        pricePerToken: xrpAmount / tokenAmount,
+        sequence: offer.Sequence,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        currencyCode: currencyCode,
+        issuer: issuerAddress,
+        sells: sells,
+        buys: buys,
+        sellCount: sells.length,
+        buyCount: buys.length,
+        retrievedAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (client) await client.disconnect();
+  }
+}
+
+/**
  * Get XRPL Explorer URL for an address
  *
  * @param {string} address - Wallet address
@@ -410,6 +482,7 @@ module.exports = {
   buyTokens,
   sellTokens,
   getOpenOffers,
+  getOrderBook,
   getExplorerUrl,
   getTransactionUrl,
   // Re-export utility from xrpl.js

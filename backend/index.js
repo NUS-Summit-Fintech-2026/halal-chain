@@ -10,6 +10,32 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+function getBearerToken(req) {
+  const h = req.headers.authorization;
+  if (!h) return null;
+  const [scheme, token] = h.split(" ");
+  if (scheme !== "Bearer" || !token) return null;
+  return token;
+}
+
+async function attachUser(req, _res, next) {
+  try {
+    const email = getBearerToken(req);
+    if (!email) {
+      req.user = null;
+      return next();
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    req.user = user ?? null;
+    return next();
+  } catch (e) {
+    return next(e);
+  }
+}
+
+app.use(attachUser);
+
 const XRPL_RPC_URL = process.env.XRPL_RPC_URL;
 const RLUSD_HEX = process.env.RLUSD_HEX;
 const HSUKUK_HEX = process.env.HSUKUK_HEX;
@@ -194,6 +220,27 @@ app.get("/portfolio/:address", async (req, res) => {
       tracked: { RLUSD_HEX, HSUKUK_HEX },
       lines,
     });
+  } catch (e) {
+    res.status(400).json({ error: String(e) });
+  }
+});
+
+// To login/register a user
+app.post("/auth/login", async (req, res) => {
+  try {
+    const { email, walletAddress, walletSeed } = req.body;
+
+    if (!email || !walletAddress || !walletSeed) {
+      return res.status(400).json({ error: "email, walletAddress, walletSeed are required" });
+    }
+
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: { walletAddress, walletSeed },
+      create: { email, walletAddress, walletSeed },
+    });
+
+    res.json({ ok: true, user });
   } catch (e) {
     res.status(400).json({ error: String(e) });
   }

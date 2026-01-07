@@ -1,27 +1,28 @@
 {
   "issuer": {
     "type": "issuer",
-    "address": "rPJWgYhpkh3fQ3RuvmmFrneJRxQyBSJXga",
-    "seed": "sEdVTtHMEuY9nKQrPuTQZKicG6afG4P",
+    "address": "rN7bJfogdqQfk8r844jdztSCrmzMHRPMHG",
+    "seed": "sEdSuy8Nnoj3up4uX1kU6ghFRiZHDXM",
     "balance": 100,
     "configured": true,
-    "createdAt": "2026-01-07T09:51:17.947Z"
+    "clawbackEnabled": true,
+    "createdAt": "2026-01-07T13:25:16.214Z"
   },
   "treasury": {
     "type": "treasury",
-    "address": "rHLPpbtcAQshB58ZZUvgWAbdwzswxKwvoL",
-    "seed": "sEdVwKC8Vomo5XXm4qqxBLprEgsbEfX",
+    "address": "rEjahkJJzi3cqskg8LCnwAjcEwLBB4ccf6",
+    "seed": "sEdVfnsDozzRMjKPHaT5jQL1NMwMyc9",
     "balance": 100,
-    "createdAt": "2026-01-07T09:51:27.868Z"
+    "createdAt": "2026-01-07T13:25:21.791Z"
   },
-  "updatedAt": "2026-01-07T09:52:04.358Z",
+  "updatedAt": "2026-01-07T13:45:09.557Z",
   "bond": {
     "bondCode": "TEST01",
     "currencyCode": "5445535430310000000000000000000000000000",
     "totalTokens": 100000,
-    "issuer": "rPJWgYhpkh3fQ3RuvmmFrneJRxQyBSJXga",
-    "treasury": "rHLPpbtcAQshB58ZZUvgWAbdwzswxKwvoL",
-    "createdAt": "2026-01-07T09:51:49.210Z"
+    "issuer": "rN7bJfogdqQfk8r844jdztSCrmzMHRPMHG",
+    "treasury": "rEjahkJJzi3cqskg8LCnwAjcEwLBB4ccf6",
+    "createdAt": "2026-01-07T13:45:09.130Z"
   },
   "buyers": [
     {

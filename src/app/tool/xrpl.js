@@ -35,24 +35,103 @@ function loadWallet(seed) {
 /**
  * Configure issuer account settings for token issuance
  * Enables DefaultRipple flag which is required for token issuance
+ * Optionally enables Clawback for bond redemption
  */
-async function configureIssuerSettings(client, issuerWallet) {
-  const settings = {
+async function configureIssuerSettings(client, issuerWallet, enableClawback = true) {
+  // Step 1: Enable DefaultRipple (required for token issuance)
+  const defaultRippleSettings = {
     TransactionType: 'AccountSet',
     Account: issuerWallet.address,
     SetFlag: xrpl.AccountSetAsfFlags.asfDefaultRipple,
   };
 
-  const prepared = await client.autofill(settings);
+  const prepared1 = await client.autofill(defaultRippleSettings);
+  const signed1 = issuerWallet.sign(prepared1);
+  const result1 = await client.submitAndWait(signed1.tx_blob);
+
+  if (result1.result.meta.TransactionResult !== 'tesSUCCESS') {
+    throw new Error(`Failed to enable DefaultRipple: ${result1.result.meta.TransactionResult}`);
+  }
+  console.log('DefaultRipple enabled');
+
+  // Step 2: Enable Clawback (allows issuer to reclaim tokens at bond maturity)
+  if (enableClawback) {
+    const clawbackSettings = {
+      TransactionType: 'AccountSet',
+      Account: issuerWallet.address,
+      SetFlag: xrpl.AccountSetAsfFlags.asfAllowTrustLineClawback,
+    };
+
+    const prepared2 = await client.autofill(clawbackSettings);
+    const signed2 = issuerWallet.sign(prepared2);
+    const result2 = await client.submitAndWait(signed2.tx_blob);
+
+    if (result2.result.meta.TransactionResult !== 'tesSUCCESS') {
+      throw new Error(`Failed to enable Clawback: ${result2.result.meta.TransactionResult}`);
+    }
+    console.log('Clawback enabled (issuer can reclaim tokens at bond maturity)');
+  }
+
+  console.log('Issuer account configured for token issuance');
+  return { defaultRipple: true, clawback: enableClawback };
+}
+
+/**
+ * Clawback tokens from a holder (for bond redemption)
+ * Issuer reclaims tokens from a specific holder
+ */
+async function clawbackTokens(client, issuerWallet, holderAddress, currencyCode, amount) {
+  const clawback = {
+    TransactionType: 'Clawback',
+    Account: issuerWallet.address,
+    Amount: {
+      currency: currencyCode,
+      issuer: holderAddress,  // Note: issuer field is the holder's address in clawback
+      value: String(amount),
+    },
+  };
+
+  const prepared = await client.autofill(clawback);
   const signed = issuerWallet.sign(prepared);
   const result = await client.submitAndWait(signed.tx_blob);
 
   if (result.result.meta.TransactionResult !== 'tesSUCCESS') {
-    throw new Error(`Failed to configure issuer: ${result.result.meta.TransactionResult}`);
+    throw new Error(`Clawback failed: ${result.result.meta.TransactionResult}`);
   }
 
-  console.log('Issuer account configured for token issuance');
-  return result;
+  return {
+    success: true,
+    holder: holderAddress,
+    amount: amount,
+    txHash: result.result.hash,
+  };
+}
+
+/**
+ * Send XRP payment (for bond redemption payout)
+ */
+async function sendXrpPayment(client, senderWallet, destinationAddress, xrpAmount) {
+  const payment = {
+    TransactionType: 'Payment',
+    Account: senderWallet.address,
+    Destination: destinationAddress,
+    Amount: xrpl.xrpToDrops(xrpAmount),
+  };
+
+  const prepared = await client.autofill(payment);
+  const signed = senderWallet.sign(prepared);
+  const result = await client.submitAndWait(signed.tx_blob);
+
+  if (result.result.meta.TransactionResult !== 'tesSUCCESS') {
+    throw new Error(`XRP payment failed: ${result.result.meta.TransactionResult}`);
+  }
+
+  return {
+    success: true,
+    destination: destinationAddress,
+    xrpAmount: xrpAmount,
+    txHash: result.result.hash,
+  };
 }
 
 /**
@@ -293,6 +372,50 @@ async function getOffers(client, address) {
 }
 
 /**
+ * Cancel an open offer
+ */
+async function cancelOffer(client, wallet, offerSequence) {
+  const cancel = {
+    TransactionType: 'OfferCancel',
+    Account: wallet.address,
+    OfferSequence: offerSequence,
+  };
+
+  const prepared = await client.autofill(cancel);
+  const signed = wallet.sign(prepared);
+  const result = await client.submitAndWait(signed.tx_blob);
+
+  if (result.result.meta.TransactionResult !== 'tesSUCCESS') {
+    throw new Error(`Cancel offer failed: ${result.result.meta.TransactionResult}`);
+  }
+
+  return {
+    success: true,
+    offerSequence: offerSequence,
+    txHash: result.result.hash,
+  };
+}
+
+/**
+ * Cancel all open offers for an account
+ */
+async function cancelAllOffers(client, wallet) {
+  const offers = await getOffers(client, wallet.address);
+  const results = [];
+
+  for (const offer of offers) {
+    try {
+      const result = await cancelOffer(client, wallet, offer.seq);
+      results.push({ sequence: offer.seq, success: true, txHash: result.txHash });
+    } catch (error) {
+      results.push({ sequence: offer.seq, success: false, error: error.message });
+    }
+  }
+
+  return results;
+}
+
+/**
  * Get order book for a token pair (Token <-> XRP)
  * Returns both buy and sell offers
  */
@@ -342,6 +465,10 @@ module.exports = {
   createBuyOffer,
   getOffers,
   getOrderBook,
+  cancelOffer,
+  cancelAllOffers,
+  clawbackTokens,
+  sendXrpPayment,
   stringToHex,
   TESTNET_URL,
 };

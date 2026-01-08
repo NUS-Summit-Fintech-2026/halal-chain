@@ -101,8 +101,33 @@ export default function BondsPage() {
   };
 
   const handleSimulateExpired = async (bond: Bond) => {
-    // TODO: Implement simulate expired functionality
-    message.info('Simulate expired - Coming soon');
+    try {
+      message.loading({ content: 'Simulating bond expiry and redeeming all holders...', key: 'simulate' });
+
+      const res = await fetch(`/api/bonds/code/${bond.code}/simulate-expired`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          principalPerTokenXrp: 1,
+          profitMultiplier: 1 + bond.profitRate, // Use bond's profit rate
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        message.success({
+          content: `Bond redeemed successfully! Payout: ${data.params.xrpPayoutPerToken} XRP per token`,
+          key: 'simulate',
+          duration: 5,
+        });
+        fetchBonds(); // Refresh list
+      } else {
+        message.error({ content: data.error || 'Failed to simulate expiry', key: 'simulate' });
+      }
+    } catch (error) {
+      message.error({ content: 'Network error. Please try again.', key: 'simulate' });
+    }
   };
 
   const handleSubmit = async () => {

@@ -41,9 +41,9 @@ async function main() {
 
   // Define buy orders at different LOW prices (won't be filled)
   const buyOrders = [
-    { tokenAmount: 50, pricePerToken: 0.001 },   // 0.001 XRP per token (very low)
-    { tokenAmount: 100, pricePerToken: 0.002 },  // 0.002 XRP per token (low)
-    { tokenAmount: 30, pricePerToken: 0.003 },   // 0.003 XRP per token (still low)
+    { tokenAmount: 50, pricePerToken: 0.1 },   // 0.001 XRP per token (very low)
+    { tokenAmount: 100, pricePerToken: 0.2 },  // 0.002 XRP per token (low)
+    { tokenAmount: 30, pricePerToken: 0.3 },   // 0.003 XRP per token (still low)
   ];
 
   console.log('\nPlacing buy orders at LOW prices (won\'t fill immediately):');

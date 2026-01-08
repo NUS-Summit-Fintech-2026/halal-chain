@@ -12,13 +12,13 @@ const xrplTool = require('./xrpl.js');
  *
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
-async function createIssuer() {
+async function createIssuer(enableClawback = true) {
   let client;
 
   try {
     client = await xrplTool.connect();
     const wallet = await xrplTool.createWallet(client);
-    await xrplTool.configureIssuerSettings(client, wallet.wallet);
+    const settings = await xrplTool.configureIssuerSettings(client, wallet.wallet, enableClawback);
 
     return {
       success: true,
@@ -28,6 +28,7 @@ async function createIssuer() {
         seed: wallet.seed,
         balance: wallet.balance,
         configured: true,
+        clawbackEnabled: settings.clawback,
         createdAt: new Date().toISOString(),
       },
     };
@@ -367,6 +368,347 @@ async function getOpenOffers(address) {
 }
 
 /**
+ * Clawback tokens from a holder (bond redemption - reclaim tokens)
+ *
+ * @param {object} params
+ * @param {string} params.issuerSeed - Issuer wallet seed
+ * @param {string} params.holderAddress - Token holder's address
+ * @param {string} params.currencyCode - Token currency code
+ * @param {number} params.amount - Amount of tokens to clawback
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function clawbackTokens({ issuerSeed, holderAddress, currencyCode, amount }) {
+  let client;
+
+  try {
+    client = await xrplTool.connect();
+    const issuerWallet = xrplTool.loadWallet(issuerSeed);
+
+    const result = await xrplTool.clawbackTokens(
+      client,
+      issuerWallet,
+      holderAddress,
+      currencyCode,
+      amount
+    );
+
+    return {
+      success: true,
+      data: {
+        type: 'clawback',
+        issuer: issuerWallet.address,
+        holder: holderAddress,
+        currencyCode: currencyCode,
+        amount: amount,
+        txHash: result.txHash,
+        executedAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (client) await client.disconnect();
+  }
+}
+
+/**
+ * Send XRP payment (for bond redemption payout)
+ *
+ * @param {object} params
+ * @param {string} params.senderSeed - Sender wallet seed
+ * @param {string} params.destinationAddress - Recipient address
+ * @param {number} params.xrpAmount - Amount of XRP to send
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function sendXrpPayment({ senderSeed, destinationAddress, xrpAmount }) {
+  let client;
+
+  try {
+    client = await xrplTool.connect();
+    const senderWallet = xrplTool.loadWallet(senderSeed);
+
+    const result = await xrplTool.sendXrpPayment(
+      client,
+      senderWallet,
+      destinationAddress,
+      xrpAmount
+    );
+
+    return {
+      success: true,
+      data: {
+        type: 'xrp_payment',
+        sender: senderWallet.address,
+        destination: destinationAddress,
+        xrpAmount: xrpAmount,
+        txHash: result.txHash,
+        executedAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (client) await client.disconnect();
+  }
+}
+
+/**
+ * Cancel all open offers for a wallet
+ *
+ * @param {string} walletSeed - Wallet seed
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function cancelAllOffers(walletSeed) {
+  let client;
+
+  try {
+    client = await xrplTool.connect();
+    const wallet = xrplTool.loadWallet(walletSeed);
+
+    const results = await xrplTool.cancelAllOffers(client, wallet);
+
+    return {
+      success: true,
+      data: {
+        address: wallet.address,
+        cancelledCount: results.filter(r => r.success).length,
+        failedCount: results.filter(r => !r.success).length,
+        results: results,
+        executedAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (client) await client.disconnect();
+  }
+}
+
+/**
+ * Redeem bond - Clawback tokens and pay XRP to holder
+ * Complete bond redemption process for a single holder
+ *
+ * Flow:
+ * 1. (Optional) Cancel holder's open offers
+ * 2. Issuer claws back tokens from holder (only issuer can clawback)
+ * 3. Treasury pays XRP to holder (treasury has the sales revenue)
+ *
+ * @param {object} params
+ * @param {string} params.issuerSeed - Issuer wallet seed (for clawback)
+ * @param {string} params.treasurySeed - Treasury wallet seed (for XRP payment)
+ * @param {string} params.holderSeed - Token holder's seed (for cancelling orders)
+ * @param {string} params.holderAddress - Token holder's address
+ * @param {string} params.currencyCode - Token currency code
+ * @param {number} params.tokenAmount - Amount of tokens to redeem
+ * @param {number} params.xrpPayoutPerToken - XRP payout per token (principal + profit)
+ * @param {boolean} params.cancelOpenOrders - Whether to cancel holder's open orders first (default: true)
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function redeemBond({ issuerSeed, treasurySeed, holderSeed, holderAddress, currencyCode, tokenAmount, xrpPayoutPerToken, cancelOpenOrders = true }) {
+  let client;
+
+  try {
+    client = await xrplTool.connect();
+    const issuerWallet = xrplTool.loadWallet(issuerSeed);
+    const treasuryWallet = xrplTool.loadWallet(treasurySeed);
+    const totalPayout = tokenAmount * xrpPayoutPerToken;
+
+    let cancelResults = null;
+
+    // Step 1: Cancel holder's open orders (if requested and seed provided)
+    if (cancelOpenOrders && holderSeed) {
+      const holderWallet = xrplTool.loadWallet(holderSeed);
+      cancelResults = await xrplTool.cancelAllOffers(client, holderWallet);
+    }
+
+    // Step 2: Issuer claws back tokens from holder
+    const clawbackResult = await xrplTool.clawbackTokens(
+      client,
+      issuerWallet,
+      holderAddress,
+      currencyCode,
+      tokenAmount
+    );
+
+    // Step 3: Treasury sends XRP payout to holder
+    const paymentResult = await xrplTool.sendXrpPayment(
+      client,
+      treasuryWallet,
+      holderAddress,
+      totalPayout
+    );
+
+    return {
+      success: true,
+      data: {
+        type: 'bond_redemption',
+        issuer: issuerWallet.address,
+        treasury: treasuryWallet.address,
+        holder: holderAddress,
+        currencyCode: currencyCode,
+        tokensRedeemed: tokenAmount,
+        xrpPayoutPerToken: xrpPayoutPerToken,
+        totalXrpPayout: totalPayout,
+        ordersCancelled: cancelResults ? cancelResults.filter(r => r.success).length : 0,
+        clawbackTxHash: clawbackResult.txHash,
+        paymentTxHash: paymentResult.txHash,
+        executedAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (client) await client.disconnect();
+  }
+}
+
+/**
+ * Redeem bond for ALL holders of a specific token
+ * Finds all token holders and performs redemption for each
+ *
+ * @param {object} params
+ * @param {string} params.issuerSeed - Issuer wallet seed (for clawback)
+ * @param {string} params.treasurySeed - Treasury wallet seed (for XRP payment)
+ * @param {string} params.currencyCode - Token currency code
+ * @param {number} params.xrpPayoutPerToken - XRP payout per token (principal + profit)
+ * @param {object} params.holderSeeds - Optional: map of holderAddress -> seed (for cancelling orders)
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function redeemBondForAllHolders({ issuerSeed, treasurySeed, currencyCode, xrpPayoutPerToken, holderSeeds = {} }) {
+  let client;
+
+  try {
+    client = await xrplTool.connect();
+    const issuerWallet = xrplTool.loadWallet(issuerSeed);
+    const treasuryWallet = xrplTool.loadWallet(treasurySeed);
+
+    // Step 1: Get all trust lines to the issuer for this currency
+    const trustLines = await xrplTool.getTrustLines(client, issuerWallet.address);
+
+    // Step 2: Filter to find holders with positive balance for this currency
+    const holders = trustLines
+      .filter(line => {
+        const lineBalance = parseFloat(line.balance);
+        // Trust line balance is negative from issuer's perspective when holder has tokens
+        // So we look for negative balance (meaning holder has tokens)
+        return line.currency === currencyCode && lineBalance < 0;
+      })
+      .map(line => ({
+        address: line.account,
+        // Negate because from issuer view, negative = holder has tokens
+        tokenBalance: Math.abs(parseFloat(line.balance)),
+      }));
+
+    if (holders.length === 0) {
+      return {
+        success: true,
+        data: {
+          type: 'bond_redemption_all',
+          currencyCode: currencyCode,
+          holdersProcessed: 0,
+          message: 'No token holders found',
+          executedAt: new Date().toISOString(),
+        },
+      };
+    }
+
+    // Step 3: Process each holder
+    const results = [];
+    let totalTokensRedeemed = 0;
+    let totalXrpPaid = 0;
+
+    for (const holder of holders) {
+      try {
+        const holderSeed = holderSeeds[holder.address] || null;
+        let cancelResults = null;
+
+        // Cancel open orders if we have the holder's seed
+        if (holderSeed) {
+          const holderWallet = xrplTool.loadWallet(holderSeed);
+          cancelResults = await xrplTool.cancelAllOffers(client, holderWallet);
+        }
+
+        // Clawback tokens
+        const clawbackResult = await xrplTool.clawbackTokens(
+          client,
+          issuerWallet,
+          holder.address,
+          currencyCode,
+          holder.tokenBalance
+        );
+
+        // Pay XRP to holder
+        const xrpPayout = holder.tokenBalance * xrpPayoutPerToken;
+        const paymentResult = await xrplTool.sendXrpPayment(
+          client,
+          treasuryWallet,
+          holder.address,
+          xrpPayout
+        );
+
+        totalTokensRedeemed += holder.tokenBalance;
+        totalXrpPaid += xrpPayout;
+
+        results.push({
+          holder: holder.address,
+          success: true,
+          tokensRedeemed: holder.tokenBalance,
+          xrpPaid: xrpPayout,
+          ordersCancelled: cancelResults ? cancelResults.filter(r => r.success).length : 0,
+          clawbackTxHash: clawbackResult.txHash,
+          paymentTxHash: paymentResult.txHash,
+        });
+      } catch (error) {
+        results.push({
+          holder: holder.address,
+          success: false,
+          tokensRedeemed: 0,
+          xrpPaid: 0,
+          error: error.message,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        type: 'bond_redemption_all',
+        issuer: issuerWallet.address,
+        treasury: treasuryWallet.address,
+        currencyCode: currencyCode,
+        xrpPayoutPerToken: xrpPayoutPerToken,
+        holdersProcessed: holders.length,
+        holdersSuccessful: results.filter(r => r.success).length,
+        holdersFailed: results.filter(r => !r.success).length,
+        totalTokensRedeemed: totalTokensRedeemed,
+        totalXrpPaid: totalXrpPaid,
+        results: results,
+        executedAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (client) await client.disconnect();
+  }
+}
+
+/**
  * Get order book for a token (all open buy and sell offers)
  *
  * @param {string} currencyCode - Token currency code
@@ -483,6 +825,11 @@ module.exports = {
   sellTokens,
   getOpenOffers,
   getOrderBook,
+  cancelAllOffers,
+  clawbackTokens,
+  sendXrpPayment,
+  redeemBond,
+  redeemBondForAllHolders,
   getExplorerUrl,
   getTransactionUrl,
   // Re-export utility from xrpl.js

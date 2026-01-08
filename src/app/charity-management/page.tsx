@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 
 interface Charity {
   id: string;
+  did?: string;
   name: string;
   description: string;
   walletAddress: string;
@@ -145,8 +146,19 @@ export default function CharityManagementPage() {
       title: 'Charity Name',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      width: 180,
       sorter: (a: Charity, b: Charity) => a.name.localeCompare(b.name),
+    },
+    {
+      title: 'DID',
+      dataIndex: 'did',
+      key: 'did',
+      width: 220,
+      render: (did: string | undefined) => did ? (
+        <Tag color="purple" style={{ fontFamily: 'monospace', fontSize: 10 }}>
+          {did}
+        </Tag>
+      ) : '-',
     },
     {
       title: 'Description',

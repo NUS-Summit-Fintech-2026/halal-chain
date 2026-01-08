@@ -12,6 +12,7 @@ import {
   ShopOutlined,
   HeartOutlined,
   TeamOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -159,6 +160,14 @@ export default function Sidebar() {
                 <UserOutlined style={{ color: '#1890ff' }} />
                 <Text strong ellipsis style={{ flex: 1 }}>{user.email}</Text>
               </div>
+              {user.did && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <IdcardOutlined style={{ color: '#722ed1', fontSize: 12 }} />
+                  <Text type="secondary" style={{ fontSize: 10, fontFamily: 'monospace' }} ellipsis>
+                    {user.did}
+                  </Text>
+                </div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <WalletOutlined style={{ color: '#52c41a', fontSize: 12 }} />
                 <Text type="secondary" style={{ fontSize: 11 }} ellipsis>

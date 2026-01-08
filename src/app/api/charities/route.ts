@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/lib/api-utils';
+import { generateDID } from '@/lib/did';
 
 // GET /api/charities - List all charities
 export async function GET() {
   try {
-    const charities = await prisma.charity.findMany({
+    const charities = await (prisma as any).charity.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
+        did: true,
         name: true,
         description: true,
         walletAddress: true,
@@ -43,8 +45,12 @@ export async function POST(request: NextRequest) {
       return errorResponse('Failed to create wallet for charity');
     }
 
-    const charity = await prisma.charity.create({
+    // Generate DID for the charity
+    const did = generateDID('charity', walletResult.data.address);
+
+    const charity = await (prisma as any).charity.create({
       data: {
+        did,
         name,
         description,
         walletAddress: walletResult.data.address,
@@ -56,6 +62,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       charity: {
         id: charity.id,
+        did: charity.did,
         name: charity.name,
         description: charity.description,
         walletAddress: charity.walletAddress,

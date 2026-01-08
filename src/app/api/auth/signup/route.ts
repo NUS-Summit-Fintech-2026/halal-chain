@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/lib/api-utils';
+import { generateDID } from '@/lib/did';
 
 // POST /api/auth/signup - Register new user with auto-generated wallet
 export async function POST(request: NextRequest) {
@@ -26,9 +27,13 @@ export async function POST(request: NextRequest) {
       return errorResponse(`Failed to create wallet: ${walletResult.error || 'Unknown error'}`);
     }
 
-    // Create user with wallet
+    // Generate DID for the user
+    const did = generateDID('user', walletResult.data.address);
+
+    // Create user with wallet and DID
     const user = await prisma.user.create({
       data: {
+        did,
         email,
         walletAddress: walletResult.data.address,
         walletSeed: walletResult.data.seed,
@@ -39,6 +44,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       user: {
         id: user.id,
+        did: user.did,
         email: user.email,
         walletAddress: user.walletAddress,
       },

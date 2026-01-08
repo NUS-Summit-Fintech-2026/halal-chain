@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 interface User {
   id: string;
+  did?: string;
   email: string;
   walletAddress: string;
 }

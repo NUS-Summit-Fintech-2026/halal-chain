@@ -11,6 +11,7 @@ const ZAKAT_RATE = 0.025; // 2.5%
 
 interface Charity {
   id: string;
+  did?: string;
   name: string;
   description: string;
   walletAddress: string;
@@ -298,6 +299,13 @@ export default function ZakatDonationPage() {
                   description={
                     <>
                       <Paragraph style={{ marginBottom: 4 }}>{charity.description}</Paragraph>
+                      {charity.did && (
+                        <div style={{ marginBottom: 4 }}>
+                          <Tag color="purple" style={{ fontFamily: 'monospace', fontSize: 10 }}>
+                            {charity.did}
+                          </Tag>
+                        </div>
+                      )}
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         Wallet:{' '}
                         <a

@@ -56,17 +56,17 @@ export default function Sidebar() {
         }}
         items={[
           {
-            key: '/bonds/home',
+            key: '/',
             icon: <HomeOutlined />,
             label: 'Home',
           },
           {
-            key: '/bonds/management',
+            key: '/management',
             icon: <BankOutlined />,
             label: 'Manage Bonds',
           },
           {
-            key: '/bonds/token',
+            key: '/token',
             icon: <DollarOutlined />,
             label: 'Bond Marketplace',
           }

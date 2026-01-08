@@ -114,43 +114,7 @@ export default function OrderBook({ bondId, currentPrice }: OrderBookProps) {
       }
       style={{ marginBottom: 24 }}
     >
-      {/* Order Book Stats */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
-          <Card size="small" style={{ background: '#f6ffed', borderColor: '#b7eb8f' }}>
-            <Space>
-              <RiseOutlined style={{ fontSize: 20, color: '#52c41a' }} />
-              <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Total Buy Volume</Text>
-                <div><Text strong style={{ fontSize: 16 }}>{totalBuyVolume.toLocaleString()}</Text></div>
-              </div>
-            </Space>
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card size="small" style={{ background: '#fff7e6', borderColor: '#ffd591' }}>
-            <Space>
-              <div style={{ fontSize: 20 }}>📊</div>
-              <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Spread</Text>
-                <div><Text strong style={{ fontSize: 16 }}>{spread} RLUSD</Text></div>
-              </div>
-            </Space>
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card size="small" style={{ background: '#fff1f0', borderColor: '#ffccc7' }}>
-            <Space>
-              <FallOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />
-              <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Total Sell Volume</Text>
-                <div><Text strong style={{ fontSize: 16 }}>{totalSellVolume.toLocaleString()}</Text></div>
-              </div>
-            </Space>
-          </Card>
-        </Col>
-      </Row>
-
+      
       <Row gutter={16}>
         {/* Buy Orders */}
         <Col span={12}>

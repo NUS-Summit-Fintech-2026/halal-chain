@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 const require = createRequire(import.meta.url);
-const apiHelper = require("../src/app/tool/apiHelper.js");
+const apiHelper = require("./tool/apiHelper.js");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 

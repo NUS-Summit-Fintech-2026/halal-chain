@@ -10,7 +10,7 @@ import TradingSection from '@/app/component/purchase';
 
 const { Title, Text } = Typography;
 
-interface BondDetails {
+interface AssetDetails {
   id: string;
   name: string;
   code: string;
@@ -21,6 +21,7 @@ interface BondDetails {
   totalValue: number;
   currencyCode: string;
   issuerAddress: string;
+  currentValuationXrp: number | null;
 }
 
 interface SellOrder {
@@ -28,11 +29,11 @@ interface SellOrder {
   quantity: number;
 }
 
-export default function BondTradePage({ params }: { params: Promise<{ bondId: string }> }) {
-  const { bondId } = use(params);
+export default function AssetTradePage({ params }: { params: Promise<{ assetId: string }> }) {
+  const { assetId } = use(params);
   const router = useRouter();
   const [currentPrice, setCurrentPrice] = useState(1);
-  const [bond, setBond] = useState<BondDetails | null>(null);
+  const [asset, setAsset] = useState<AssetDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [sellOrders, setSellOrders] = useState<SellOrder[]>([]);
   const [availableTokens, setAvailableTokens] = useState(0);
@@ -71,71 +72,50 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
 
   // Callback to refetch orderbook - passed to TradingSection
   const onTradeSuccess = useCallback(() => {
-    if (bond?.currencyCode && bond?.issuerAddress) {
-      fetchOrderBook(bond.currencyCode, bond.issuerAddress);
+    if (asset?.currencyCode && asset?.issuerAddress) {
+      fetchOrderBook(asset.currencyCode, asset.issuerAddress);
       // Increment key to force OrderBook component to refetch
       setOrderbookKey(prev => prev + 1);
     }
-  }, [bond?.currencyCode, bond?.issuerAddress, fetchOrderBook]);
+  }, [asset?.currencyCode, asset?.issuerAddress, fetchOrderBook]);
 
   useEffect(() => {
-    // Fetch bond data from API
-    async function fetchBond() {
+    // Fetch asset data from API
+    async function fetchAsset() {
       try {
-        const res = await fetch(`/api/bonds/${bondId}`);
+        const res = await fetch(`/api/realassets/${assetId}`);
         if (res.ok) {
           const data = await res.json();
           const profitRate = data.profitRate;
-          setBond({
+          setAsset({
             id: data.id,
             name: data.name,
             code: data.code,
-            issuer: 'Issuer',
-            maturityDate: data.maturityDate || 'TBD',
+            issuer: 'Real Asset',
+            maturityDate: 'Upon Realization',
             expectedReturn: `${(profitRate * 100).toFixed(1)}%`,
             profitRate: profitRate,
             totalValue: data.totalTokens,
             currencyCode: data.currencyCode,
             issuerAddress: data.issuerAddress,
+            currentValuationXrp: data.currentValuationXrp,
           });
 
-          // Fetch orderbook after getting bond data
+          // Fetch orderbook after getting asset data
           if (data.currencyCode && data.issuerAddress) {
             fetchOrderBook(data.currencyCode, data.issuerAddress);
           }
         } else {
-          setBond({
-            id: bondId,
-            name: 'Government Sukuk 2026',
-            code: 'US092189AC02',
-            issuer: 'Ministry of Finance',
-            maturityDate: 'December 31, 2026',
-            expectedReturn: '5%',
-            profitRate: 0.05,
-            totalValue: 1000000,
-            currencyCode: '',
-            issuerAddress: '',
-          });
+          setAsset(null);
         }
       } catch (error) {
-        setBond({
-          id: bondId,
-          name: 'Government Sukuk 2026',
-          code: 'US092189AC02',
-          issuer: 'Ministry of Finance',
-          maturityDate: 'December 31, 2026',
-          expectedReturn: '5%',
-          profitRate: 0.05,
-          totalValue: 1000000,
-          currencyCode: '',
-          issuerAddress: '',
-        });
+        setAsset(null);
       } finally {
         setLoading(false);
       }
     }
-    fetchBond();
-  }, [bondId]);
+    fetchAsset();
+  }, [assetId, fetchOrderBook]);
 
   if (loading) {
     return (
@@ -145,13 +125,13 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
     );
   }
 
-  if (!bond) {
-    return <div>Bond not found</div>;
+  if (!asset) {
+    return <div>Asset not found</div>;
   }
 
   return (
     <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Button 
+      <Button
         icon={<ArrowLeftOutlined />}
         onClick={() => router.back()}
         style={{ marginBottom: 16 }}
@@ -159,38 +139,41 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
         Back to Marketplace
       </Button>
 
-      {/* Bond Header */}
+      {/* Asset Header */}
       <Card style={{ marginBottom: 24 }}>
         <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Title level={3} style={{ margin: 0 }}>{bond.name}</Title>
-          <Text type="secondary">{bond.code} • {bond.issuer}</Text>
+          <Title level={3} style={{ margin: 0 }}>{asset.name}</Title>
+          <Text type="secondary">{asset.code} • {asset.issuer}</Text>
           <Space size="large" style={{ marginTop: 8 }}>
-            <Text>Maturity: <strong>{bond.maturityDate}</strong></Text>
-            <Text>Expected Return: <strong>{bond.expectedReturn}</strong></Text>
-            <Text>Total Value: <strong>{bond.totalValue.toLocaleString()} XRP</strong></Text>
+            <Text>Realization: <strong>{asset.maturityDate}</strong></Text>
+            <Text>Expected Return: <strong>{asset.expectedReturn}</strong></Text>
+            <Text>Total Tokens: <strong>{asset.totalValue.toLocaleString()}</strong></Text>
+            {asset.currentValuationXrp && (
+              <Text>Valuation: <strong>{asset.currentValuationXrp.toLocaleString()} XRP</strong></Text>
+            )}
           </Space>
         </Space>
       </Card>
 
       {/* Price Chart */}
       <PriceChart
-        bondId={bond.id}
+        bondId={asset.id}
         basePrice={lowestSellPrice}
-        profitRate={bond.profitRate}
+        profitRate={asset.profitRate}
         onPriceUpdate={setCurrentPrice}
       />
 
       {/* Order Book */}
       <OrderBook
         key={orderbookKey}
-        currencyCode={bond.currencyCode}
-        issuerAddress={bond.issuerAddress}
+        currencyCode={asset.currencyCode}
+        issuerAddress={asset.issuerAddress}
         currentPrice={currentPrice}
       />
 
       {/* Trading Section - Buy/Sell */}
       <TradingSection
-        bond={bond}
+        bond={asset}
         currentPrice={lowestSellPrice}
         availableTokens={availableTokens}
         onTradeSuccess={onTradeSuccess}

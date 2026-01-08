@@ -8,6 +8,8 @@ import {
   UserOutlined,
   LogoutOutlined,
   WalletOutlined,
+  GoldOutlined,
+  ShopOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -112,6 +114,16 @@ export default function Sidebar() {
               key: '/token',
               icon: <DollarOutlined />,
               label: 'Bond Marketplace',
+            },
+            {
+              key: '/asset-management',
+              icon: <GoldOutlined />,
+              label: 'Manage Real Assets',
+            },
+            {
+              key: '/asset-marketplace',
+              icon: <ShopOutlined />,
+              label: 'Asset Marketplace',
             },
             ...(user ? [{
               key: 'wallet',

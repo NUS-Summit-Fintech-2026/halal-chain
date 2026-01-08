@@ -7,7 +7,8 @@ import { useState, useEffect } from 'react';
 const { Text } = Typography;
 
 interface OrderBookProps {
-  bondCode: string;
+  currencyCode: string;
+  issuerAddress: string;
   currentPrice: number;
 }
 
@@ -27,17 +28,17 @@ interface ApiOrder {
   sequence: number;
 }
 
-export default function OrderBook({ bondCode, currentPrice }: OrderBookProps) {
+export default function OrderBook({ currencyCode, issuerAddress, currentPrice }: OrderBookProps) {
   const [buyOrders, setBuyOrders] = useState<Order[]>([]);
   const [sellOrders, setSellOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrderBook = async () => {
-    if (!bondCode) return;
+    if (!currencyCode || !issuerAddress) return;
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/xrpl/orderbook/${bondCode}`);
+      const res = await fetch(`/api/xrpl/orderbook?currencyCode=${encodeURIComponent(currencyCode)}&issuerAddress=${encodeURIComponent(issuerAddress)}`);
       const data = await res.json();
 
       if (res.ok && data.success) {
@@ -80,7 +81,7 @@ export default function OrderBook({ bondCode, currentPrice }: OrderBookProps) {
 
   useEffect(() => {
     fetchOrderBook();
-  }, [bondCode]);
+  }, [currencyCode, issuerAddress]);
 
   const buyColumns = [
     {

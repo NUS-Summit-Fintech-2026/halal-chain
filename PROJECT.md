@@ -2,6 +2,7 @@
 
 ## Deployment
 
+
 **Live Application:**
 - **Buyer Portal:** [https://halal-chain-six.vercel.app/login](https://halal-chain-six.vercel.app/login)
 - **Admin Portal:** [https://halal-chain-six.vercel.app/admin/login](https://halal-chain-six.vercel.app/admin/login)

@@ -3,8 +3,8 @@
 A Shariah-compliant tokenization platform built on XRPL (XRP Ledger) for bonds and real assets.
 
 **Live Demo:**
-- **Buyer Portal:** [https://halal-chain.vercel.app/login](https://halal-chain.vercel.app/login)
-- **Admin Portal:** [https://halal-chain.vercel.app/admin/login](https://halal-chain.vercel.app/admin/login)
+- **Buyer Portal:** [https://halal-chain-six.vercel.app//login](https://halal-chain-six.vercel.app//login)
+- **Admin Portal:** [https://halal-chain-six.vercel.app//admin/login](https://halal-chain-six.vercel.app//admin/login)
 
 ## Overview
 

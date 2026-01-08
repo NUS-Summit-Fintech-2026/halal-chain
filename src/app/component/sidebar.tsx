@@ -112,7 +112,7 @@ export default function Sidebar() {
       ),
       children: [
         {
-          key: '/token',
+          key: '/bond-marketplace',
           icon: <DollarOutlined />,
           label: 'Bond Marketplace',
         },

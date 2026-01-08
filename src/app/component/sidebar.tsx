@@ -1,6 +1,6 @@
 'use client';
 
-import { Layout, Menu, Button, Space, Typography, Divider } from 'antd';
+import { Layout, Menu, Button, Space, Typography, message } from 'antd';
 import {
   HomeOutlined,
   BankOutlined,
@@ -20,8 +20,41 @@ const { Text } = Typography;
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading, signOut } = useAuth();
+  const { user, isLoading, signOut, getAuthHeader } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  const handleOpenWallet = async () => {
+    if (!user) {
+      message.error('Please sign in to view your wallet');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/me/wallet', {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        window.open(data.explorerUrl, '_blank');
+      } else {
+        message.error(data.error || 'Failed to get wallet info');
+      }
+    } catch (error) {
+      message.error('Network error');
+    }
+  };
+
+  const handleMenuClick = ({ key }: { key: string }) => {
+    if (key === 'wallet') {
+      handleOpenWallet();
+    } else {
+      router.push(key);
+    }
+  };
 
   return (
     <>
@@ -58,7 +91,7 @@ export default function Sidebar() {
         <Menu
           mode="inline"
           selectedKeys={[pathname]}
-          onClick={({ key }) => router.push(key)}
+          onClick={handleMenuClick}
           style={{
             border: 'none',
             background: 'transparent',
@@ -79,7 +112,12 @@ export default function Sidebar() {
               key: '/token',
               icon: <DollarOutlined />,
               label: 'Bond Marketplace',
-            }
+            },
+            ...(user ? [{
+              key: 'wallet',
+              icon: <WalletOutlined />,
+              label: 'My Wallet',
+            }] : []),
           ]}
         />
 

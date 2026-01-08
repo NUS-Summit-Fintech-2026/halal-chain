@@ -1,8 +1,8 @@
 'use client';
 
 import { Card, Button, InputNumber, Typography, Space, Statistic, Row, Col, Divider, message } from 'antd';
-import { ShoppingCartOutlined, LoadingOutlined, LoginOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { ShoppingCartOutlined, LoadingOutlined, LoginOutlined, WalletOutlined } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
 const { Title, Text } = Typography;
@@ -23,9 +23,43 @@ interface PurchaseSectionProps {
 export default function PurchaseSection({ bond, currentPrice, availableTokens }: PurchaseSectionProps) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
   const { user, getAuthHeader } = useAuth();
 
   const totalCost = quantity * currentPrice;
+  const hasInsufficientBalance = userBalance !== null && totalCost > userBalance;
+
+  // Fetch user balance when user is logged in
+  useEffect(() => {
+    if (!user) {
+      setUserBalance(null);
+      return;
+    }
+
+    const fetchBalance = async () => {
+      setBalanceLoading(true);
+      try {
+        const res = await fetch('/api/me/balance', {
+          headers: {
+            ...getAuthHeader(),
+          },
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          setUserBalance(data.xrpBalance);
+        }
+      } catch (error) {
+        console.error('Failed to fetch balance:', error);
+      } finally {
+        setBalanceLoading(false);
+      }
+    };
+
+    fetchBalance();
+  }, [user]);
 
   const handlePurchase = async () => {
     if (!user) {
@@ -40,6 +74,11 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
 
     if (currentPrice <= 0) {
       message.error('No sell orders available');
+      return;
+    }
+
+    if (hasInsufficientBalance) {
+      message.error('Insufficient XRP balance');
       return;
     }
 
@@ -160,8 +199,25 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
                 value={totalCost}
                 precision={6}
                 suffix="XRP"
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: hasInsufficientBalance ? '#ff4d4f' : '#1890ff' }}
               />
+
+              {/* User Balance */}
+              {user && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <WalletOutlined style={{ color: '#52c41a' }} />
+                  <Text>
+                    Your Balance:{' '}
+                    {balanceLoading ? (
+                      <LoadingOutlined style={{ marginLeft: 4 }} />
+                    ) : (
+                      <Text strong style={{ color: hasInsufficientBalance ? '#ff4d4f' : '#52c41a' }}>
+                        {userBalance?.toFixed(2) ?? '—'} XRP
+                      </Text>
+                    )}
+                  </Text>
+                </div>
+              )}
 
               {/* Purchase Button */}
               <Button
@@ -170,7 +226,7 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
                 block
                 icon={loading ? <LoadingOutlined /> : (user ? <ShoppingCartOutlined /> : <LoginOutlined />)}
                 onClick={handlePurchase}
-                disabled={!user || quantity > availableTokens || availableTokens === 0 || loading}
+                disabled={!user || quantity > availableTokens || availableTokens === 0 || loading || hasInsufficientBalance}
                 loading={loading}
               >
                 {loading ? 'Processing...' : (user ? 'Buy Now' : 'Sign In to Buy')}
@@ -185,6 +241,11 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
               {user && quantity > availableTokens && availableTokens > 0 && (
                 <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
                   Quantity exceeds available tokens
+                </Text>
+              )}
+              {user && hasInsufficientBalance && (
+                <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
+                  Insufficient XRP balance
                 </Text>
               )}
               {availableTokens === 0 && (

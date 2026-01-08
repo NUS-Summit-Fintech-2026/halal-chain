@@ -3,6 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { prisma } from "./db.js";
 import { createRequire } from "module";
+import multer from "multer";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -12,6 +14,15 @@ app.use(express.json());
 
 const require = createRequire(import.meta.url);
 const apiHelper = require("../src/app/tool/apiHelper.js");
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const BUCKET = process.env.SUPABASE_BUCKET || "Bonds";
 
 function getBearerToken(req) {
   const h = req.headers.authorization;
@@ -363,6 +374,54 @@ app.post("/bonds/code/:code/simulate-expired", async (req, res) => {
     });
   } catch (e) {
     return res.status(400).json({ success: false, error: String(e) });
+  }
+});
+
+app.post("/bonds/code/:code/upload", upload.single("file"), async (req, res) => {
+  try {
+    const bond = await prisma.bond.findUnique({ where: { code: req.params.code } });
+    if (!bond) return res.status(404).json({ success: false, error: "Bond not found" });
+    if (!req.file) return res.status(400).json({ success: false, error: "file is required" });
+
+    const allowed = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+    if (!allowed.includes(req.file.mimetype)) {
+      return res.status(400).json({ success: false, error: "Only pdf/png/jpg/webp allowed" });
+    }
+
+    const ext = (req.file.originalname.split(".").pop() || "bin").toLowerCase();
+    const objectPath = `bonds/${bond.code}/${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from(BUCKET)
+      .upload(objectPath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (upErr) return res.status(400).json({ success: false, error: upErr.message });
+
+    // Public URL (bucket must be public)
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
+    const fileUrl = data.publicUrl;
+
+    const updated = await prisma.bond.update({
+      where: { id: bond.id },
+      data: { fileUrl },
+    });
+
+    res.json({
+      success: true,
+      bond: updated,
+      file: {
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        fileUrl,
+        objectPath,
+      },
+    });
+  } catch (e) {
+    res.status(400).json({ success: false, error: String(e) });
   }
 });
 

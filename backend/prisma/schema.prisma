@@ -34,6 +34,7 @@ model Bond {
   totalTokens    Int
   status         BondStatus @default(DRAFT)
   profitRate     Float
+  fileUrl        String?
 
   issuerAddress   String
   treasuryAddress String

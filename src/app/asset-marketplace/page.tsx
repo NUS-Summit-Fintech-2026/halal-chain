@@ -4,6 +4,7 @@ import { Card, Button, Table, Space, Tag, Spin, message } from 'antd';
 import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AuthGuard from '@/app/component/AuthGuard';
 
 interface RealAsset {
   id: string;
@@ -105,41 +106,43 @@ export default function RealAssetMarketplacePage() {
   ];
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Card
-        title={
-          <span style={{ fontSize: '20px', fontWeight: 600 }}>
-            Real Asset Marketplace
-          </span>
-        }
-        extra={
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={fetchAssets}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 50 }}>
-            <Spin size="large" />
-          </div>
-        ) : assets.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 50, color: '#666' }}>
-            No published real assets available for trading yet.
-          </div>
-        ) : (
-          <Table
-            columns={columns}
-            dataSource={assets}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-            style={{ marginTop: 16 }}
-          />
-        )}
-      </Card>
-    </div>
+    <AuthGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        <Card
+          title={
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>
+              Real Asset Marketplace
+            </span>
+          }
+          extra={
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchAssets}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+          }
+        >
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 50 }}>
+              <Spin size="large" />
+            </div>
+          ) : assets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 50, color: '#666' }}>
+              No published real assets available for trading yet.
+            </div>
+          ) : (
+            <Table
+              columns={columns}
+              dataSource={assets}
+              rowKey="id"
+              pagination={{ pageSize: 10 }}
+              style={{ marginTop: 16 }}
+            />
+          )}
+        </Card>
+      </div>
+    </AuthGuard>
   );
 }

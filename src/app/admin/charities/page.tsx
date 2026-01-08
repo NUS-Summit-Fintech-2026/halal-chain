@@ -3,6 +3,7 @@
 import { Card, Button, Table, Modal, Form, Input, Space, Popconfirm, message, Spin, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, EyeOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
+import AdminGuard from '@/app/component/AdminGuard';
 
 interface Charity {
   id: string;
@@ -230,22 +231,23 @@ export default function CharityManagementPage() {
   ];
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Card
-        title={
-          <span style={{ fontSize: '20px', fontWeight: 600 }}>
-            Charity Management
-          </span>
-        }
-        extra={
-          <Space>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={fetchCharities}
-              loading={loading}
-            >
-              Refresh
-            </Button>
+    <AdminGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        <Card
+          title={
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>
+              Charity Management
+            </span>
+          }
+          extra={
+            <Space>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={fetchCharities}
+                loading={loading}
+              >
+                Refresh
+              </Button>
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -312,8 +314,9 @@ export default function CharityManagementPage() {
               A new XRPL wallet will be automatically created for this charity to receive donations.
             </div>
           )}
-        </Form>
-      </Modal>
-    </div>
+          </Form>
+        </Modal>
+      </div>
+    </AdminGuard>
   );
 }

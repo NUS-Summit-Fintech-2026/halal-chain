@@ -1,26 +1,26 @@
 'use client';
 
 import { Card, Button, Descriptions, Space, message, Steps, InputNumber, Form, Spin, Tag, Result } from 'antd';
-import { RocketOutlined, ArrowLeftOutlined, LinkOutlined } from '@ant-design/icons';
+import { RocketOutlined, CheckCircleOutlined, ArrowLeftOutlined, LinkOutlined } from '@ant-design/icons';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import AdminGuard from '@/app/component/AdminGuard';
 
-interface RealAsset {
+interface Bond {
   id: string;
   name: string;
   description: string;
   code: string;
   currencyCode: string | null;
   totalTokens: number;
-  status: 'DRAFT' | 'PUBLISHED' | 'REALIZED';
+  status: 'DRAFT' | 'PUBLISHED';
   profitRate: number;
-  currentValuationXrp: number | null;
   issuerAddress: string;
   treasuryAddress: string;
 }
 
 interface PublishResult {
-  asset: RealAsset;
+  bond: Bond;
   tokenize: {
     currencyCode: string;
     totalTokens: number;
@@ -35,65 +35,65 @@ interface PublishResult {
   };
 }
 
-function PublishAssetContent() {
+function PublishBondContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const assetCode = searchParams.get('assetCode');
+  const bondCode = searchParams.get('bondCode');
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isPublishing, setIsPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [asset, setAsset] = useState<RealAsset | null>(null);
+  const [bond, setBond] = useState<Bond | null>(null);
   const [pricePerToken, setPricePerToken] = useState<number>(1);
   const [publishResult, setPublishResult] = useState<PublishResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch asset data
+  // Fetch bond data
   useEffect(() => {
-    if (!assetCode) {
-      message.error('No asset selected');
-      router.push('/asset-management');
+    if (!bondCode) {
+      message.error('No bond selected');
+      router.push('/admin/bonds');
       return;
     }
 
-    async function fetchAsset() {
+    async function fetchBond() {
       try {
-        const res = await fetch(`/api/realassets/code/${assetCode}`);
+        const res = await fetch(`/api/bonds/code/${bondCode}`);
         if (res.ok) {
           const data = await res.json();
-          setAsset(data);
+          setBond(data);
 
           // If already published, go to step 2
-          if (data.status === 'PUBLISHED' || data.status === 'REALIZED') {
+          if (data.status === 'PUBLISHED') {
             setCurrentStep(2);
           }
         } else {
-          message.error('Asset not found');
-          router.push('/asset-management');
+          message.error('Bond not found');
+          router.push('/admin/bonds');
         }
       } catch (err) {
-        message.error('Failed to fetch asset');
-        router.push('/asset-management');
+        message.error('Failed to fetch bond');
+        router.push('/admin/bonds');
       } finally {
         setLoading(false);
       }
     }
 
-    fetchAsset();
-  }, [assetCode, router]);
+    fetchBond();
+  }, [bondCode, router]);
 
   const handlePublish = async () => {
-    if (!asset || !pricePerToken || pricePerToken <= 0) {
+    if (!bond || !pricePerToken || pricePerToken <= 0) {
       message.error('Please enter a valid price per token');
       return;
     }
 
     setIsPublishing(true);
-    setCurrentStep(1);
+    setCurrentStep(1); // Move to tokenizing step
     setError(null);
 
     try {
-      const res = await fetch(`/api/realassets/code/${asset.code}/publish`, {
+      const res = await fetch(`/api/bonds/code/${bond.code}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pricePerToken }),
@@ -103,13 +103,13 @@ function PublishAssetContent() {
 
       if (res.ok && data.ok) {
         setPublishResult(data);
-        setAsset(data.asset);
+        setBond(data.bond);
         setCurrentStep(2);
-        message.success('Asset published and tokenized successfully!');
+        message.success('Bond published and tokenized successfully!');
       } else {
-        setError(data.error || 'Failed to publish asset');
-        setCurrentStep(0);
-        message.error(data.error || 'Failed to publish asset');
+        setError(data.error || 'Failed to publish bond');
+        setCurrentStep(0); // Go back to review step
+        message.error(data.error || 'Failed to publish bond');
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -121,7 +121,7 @@ function PublishAssetContent() {
   };
 
   const handleGoBack = () => {
-    router.push('/asset-management');
+    router.push('/management');
   };
 
   if (loading) {
@@ -132,7 +132,7 @@ function PublishAssetContent() {
     );
   }
 
-  if (!asset) {
+  if (!bond) {
     return null;
   }
 
@@ -147,7 +147,7 @@ function PublishAssetContent() {
               onClick={handleGoBack}
             />
             <span style={{ fontSize: '20px', fontWeight: 600 }}>
-              Publish Real Asset
+              Publish Bond
             </span>
           </Space>
         }
@@ -158,7 +158,7 @@ function PublishAssetContent() {
           items={[
             {
               title: 'Review',
-              description: 'Review asset details',
+              description: 'Review bond details',
             },
             {
               title: 'Tokenize',
@@ -174,13 +174,13 @@ function PublishAssetContent() {
         {currentStep === 2 && publishResult ? (
           <Result
             status="success"
-            title="Asset Published Successfully!"
-            subTitle={`Your real asset has been tokenized on XRPL and is now available for trading.`}
+            title="Bond Published Successfully!"
+            subTitle={`Your bond has been tokenized on XRPL and is now available for trading.`}
             extra={[
               <Button type="primary" key="management" onClick={handleGoBack}>
                 Back to Management
               </Button>,
-              <Button key="trade" onClick={() => router.push(`/asset-trade/${asset.id}`)}>
+              <Button key="trade" onClick={() => router.push(`/trade/${bond.id}`)}>
                 View Trading Page
               </Button>,
             ]}
@@ -220,33 +220,26 @@ function PublishAssetContent() {
               </Descriptions.Item>
             </Descriptions>
           </Result>
-        ) : asset.status !== 'DRAFT' ? (
+        ) : bond.status === 'PUBLISHED' ? (
           <Result
             status="success"
-            title={asset.status === 'REALIZED' ? 'Asset Already Realized' : 'Asset Already Published'}
-            subTitle={asset.status === 'REALIZED'
-              ? 'This asset has been realized and is no longer tradable.'
-              : 'This asset has already been tokenized and published.'}
+            title="Bond Already Published"
+            subTitle="This bond has already been tokenized and published."
             extra={[
               <Button type="primary" key="management" onClick={handleGoBack}>
                 Back to Management
               </Button>,
-              asset.status === 'PUBLISHED' && (
-                <Button key="trade" onClick={() => router.push(`/asset-trade/${asset.id}`)}>
-                  View Trading Page
-                </Button>
-              ),
+              <Button key="trade" onClick={() => router.push(`/trade/${bond.id}`)}>
+                View Trading Page
+              </Button>,
             ]}
           >
             <Descriptions bordered column={1} style={{ marginTop: 24 }}>
               <Descriptions.Item label="Currency Code">
-                <Tag color="blue">{asset.currencyCode}</Tag>
+                <Tag color="blue">{bond.currencyCode}</Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Total Tokens">
-                {asset.totalTokens.toLocaleString()}
-              </Descriptions.Item>
-              <Descriptions.Item label="Status">
-                <Tag color={asset.status === 'REALIZED' ? 'blue' : 'green'}>{asset.status}</Tag>
+                {bond.totalTokens.toLocaleString()}
               </Descriptions.Item>
             </Descriptions>
           </Result>
@@ -257,46 +250,41 @@ function PublishAssetContent() {
               column={2}
               style={{ marginBottom: 24 }}
             >
-              <Descriptions.Item label="Asset Name" span={2}>
-                {asset.name}
+              <Descriptions.Item label="Bond Name" span={2}>
+                {bond.name}
               </Descriptions.Item>
               <Descriptions.Item label="Description" span={2}>
-                {asset.description}
+                {bond.description}
               </Descriptions.Item>
-              <Descriptions.Item label="Asset Code">
-                <Tag>{asset.code}</Tag>
+              <Descriptions.Item label="Bond Code">
+                <Tag>{bond.code}</Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Total Tokens">
-                {asset.totalTokens.toLocaleString()}
+                {bond.totalTokens.toLocaleString()}
               </Descriptions.Item>
-              <Descriptions.Item label="Expected Return">
-                {(asset.profitRate * 100).toFixed(1)}%
+              <Descriptions.Item label="Profit Rate">
+                {(bond.profitRate * 100).toFixed(1)}%
               </Descriptions.Item>
               <Descriptions.Item label="Status">
-                <Tag color="orange">{asset.status}</Tag>
+                <Tag color="orange">{bond.status}</Tag>
               </Descriptions.Item>
-              {asset.currentValuationXrp && (
-                <Descriptions.Item label="Current Valuation" span={2}>
-                  {asset.currentValuationXrp.toLocaleString()} XRP
-                </Descriptions.Item>
-              )}
               <Descriptions.Item label="Issuer Address" span={2}>
                 <a
-                  href={`https://testnet.xrpl.org/accounts/${asset.issuerAddress}`}
+                  href={`https://testnet.xrpl.org/accounts/${bond.issuerAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {asset.issuerAddress}
+                  {bond.issuerAddress}
                   <LinkOutlined style={{ marginLeft: 4 }} />
                 </a>
               </Descriptions.Item>
               <Descriptions.Item label="Treasury Address" span={2}>
                 <a
-                  href={`https://testnet.xrpl.org/accounts/${asset.treasuryAddress}`}
+                  href={`https://testnet.xrpl.org/accounts/${bond.treasuryAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {asset.treasuryAddress}
+                  {bond.treasuryAddress}
                   <LinkOutlined style={{ marginLeft: 4 }} />
                 </a>
               </Descriptions.Item>
@@ -310,7 +298,7 @@ function PublishAssetContent() {
               <Form layout="vertical">
                 <Form.Item
                   label="Price per Token (XRP)"
-                  extra="This will be the initial sell price when the asset is listed on the XRPL DEX"
+                  extra="This will be the initial sell price when the bond is listed on the XRPL DEX"
                   required
                 >
                   <InputNumber
@@ -323,7 +311,7 @@ function PublishAssetContent() {
                   />
                 </Form.Item>
                 <div style={{ color: '#666', marginTop: 8 }}>
-                  Total Value: <strong>{(asset.totalTokens * pricePerToken).toLocaleString()} XRP</strong>
+                  Total Value: <strong>{(bond.totalTokens * pricePerToken).toLocaleString()} XRP</strong>
                 </div>
               </Form>
             </Card>
@@ -356,14 +344,16 @@ function PublishAssetContent() {
   );
 }
 
-export default function PublishAssetPage() {
+export default function PublishBondPage() {
   return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <Spin size="large" />
-      </div>
-    }>
-      <PublishAssetContent />
-    </Suspense>
+    <AdminGuard>
+      <Suspense fallback={
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <Spin size="large" />
+        </div>
+      }>
+        <PublishBondContent />
+      </Suspense>
+    </AdminGuard>
   );
 }

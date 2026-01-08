@@ -4,6 +4,7 @@ import { Card, Button, Table, Modal, Form, Input, InputNumber, Space, Tag, Popco
 import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, DollarOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminGuard from '@/app/component/AdminGuard';
 
 interface RealAsset {
   id: string;
@@ -92,7 +93,7 @@ export default function RealAssetManagementPage() {
   };
 
   const handlePublish = (asset: RealAsset) => {
-    router.push(`/asset-publish?assetCode=${asset.code}`);
+    router.push(`/admin/assets/publish?assetCode=${asset.code}`);
   };
 
   const handleViewTreasury = (asset: RealAsset) => {
@@ -332,17 +333,18 @@ export default function RealAssetManagementPage() {
   ];
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Card
-        title={
-          <span style={{ fontSize: '20px', fontWeight: 600 }}>
-            Real Asset Management
-          </span>
-        }
-        extra={
-          <Space>
-            <Button
-              icon={<ReloadOutlined />}
+    <AdminGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        <Card
+          title={
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>
+              Real Asset Management
+            </span>
+          }
+          extra={
+            <Space>
+              <Button
+                icon={<ReloadOutlined />}
               onClick={fetchAssets}
               loading={loading}
             >
@@ -512,8 +514,9 @@ export default function RealAssetManagementPage() {
               Payout per token: {(realizationForm.getFieldValue('sellingPriceXrp') / selectedAsset.totalTokens).toFixed(6)} XRP
             </p>
           )}
-        </Form>
-      </Modal>
-    </div>
+          </Form>
+        </Modal>
+      </div>
+    </AdminGuard>
   );
 }

@@ -7,6 +7,7 @@ import { useState, useEffect, use, useCallback } from 'react';
 import PriceChart from '@/app/component/pricechart';
 import OrderBook from '@/app/component/orderbook';
 import TradingSection from '@/app/component/purchase';
+import AuthGuard from '@/app/component/AuthGuard';
 
 const { Title, Text } = Typography;
 
@@ -150,51 +151,53 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
   }
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Button 
-        icon={<ArrowLeftOutlined />}
-        onClick={() => router.back()}
-        style={{ marginBottom: 16 }}
-      >
-        Back to Marketplace
-      </Button>
+    <AuthGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => router.back()}
+          style={{ marginBottom: 16 }}
+        >
+          Back to Marketplace
+        </Button>
 
-      {/* Bond Header */}
-      <Card style={{ marginBottom: 24 }}>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Title level={3} style={{ margin: 0 }}>{bond.name}</Title>
-          <Text type="secondary">{bond.code} • {bond.issuer}</Text>
-          <Space size="large" style={{ marginTop: 8 }}>
-            <Text>Maturity: <strong>{bond.maturityDate}</strong></Text>
-            <Text>Expected Return: <strong>{bond.expectedReturn}</strong></Text>
-            <Text>Total Value: <strong>{bond.totalValue.toLocaleString()} XRP</strong></Text>
+        {/* Bond Header */}
+        <Card style={{ marginBottom: 24 }}>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Title level={3} style={{ margin: 0 }}>{bond.name}</Title>
+            <Text type="secondary">{bond.code} • {bond.issuer}</Text>
+            <Space size="large" style={{ marginTop: 8 }}>
+              <Text>Maturity: <strong>{bond.maturityDate}</strong></Text>
+              <Text>Expected Return: <strong>{bond.expectedReturn}</strong></Text>
+              <Text>Total Value: <strong>{bond.totalValue.toLocaleString()} XRP</strong></Text>
+            </Space>
           </Space>
-        </Space>
-      </Card>
+        </Card>
 
-      {/* Price Chart */}
-      <PriceChart
-        bondId={bond.id}
-        basePrice={lowestSellPrice}
-        profitRate={bond.profitRate}
-        onPriceUpdate={setCurrentPrice}
-      />
+        {/* Price Chart */}
+        <PriceChart
+          bondId={bond.id}
+          basePrice={lowestSellPrice}
+          profitRate={bond.profitRate}
+          onPriceUpdate={setCurrentPrice}
+        />
 
-      {/* Order Book */}
-      <OrderBook
-        key={orderbookKey}
-        currencyCode={bond.currencyCode}
-        issuerAddress={bond.issuerAddress}
-        currentPrice={currentPrice}
-      />
+        {/* Order Book */}
+        <OrderBook
+          key={orderbookKey}
+          currencyCode={bond.currencyCode}
+          issuerAddress={bond.issuerAddress}
+          currentPrice={currentPrice}
+        />
 
-      {/* Trading Section - Buy/Sell */}
-      <TradingSection
-        bond={bond}
-        currentPrice={lowestSellPrice}
-        availableTokens={availableTokens}
-        onTradeSuccess={onTradeSuccess}
-      />
-    </div>
+        {/* Trading Section - Buy/Sell */}
+        <TradingSection
+          bond={bond}
+          currentPrice={lowestSellPrice}
+          availableTokens={availableTokens}
+          onTradeSuccess={onTradeSuccess}
+        />
+      </div>
+    </AuthGuard>
   );
 }

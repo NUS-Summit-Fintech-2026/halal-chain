@@ -4,6 +4,7 @@ import { Card, Button, List, Typography, Spin, message, Modal, Result, Statistic
 import { HeartOutlined, WalletOutlined, ReloadOutlined, CheckCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import AuthGuard from '@/app/component/AuthGuard';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -141,9 +142,10 @@ export default function ZakatDonationPage() {
   }
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      {/* Header Card with Balance Info */}
-      <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+    <AuthGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        {/* Header Card with Balance Info */}
+        <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
         <Row gutter={24} align="middle">
           <Col span={16}>
             <Title level={2} style={{ color: '#fff', margin: 0 }}>
@@ -363,6 +365,7 @@ export default function ZakatDonationPage() {
           />
         )}
       </Modal>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

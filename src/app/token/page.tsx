@@ -4,6 +4,7 @@ import { Card, Button, Table, Space, Tag, Spin, message } from 'antd';
 import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AuthGuard from '@/app/component/AuthGuard';
 
 interface Bond {
   id: string;
@@ -98,41 +99,43 @@ export default function BondMarketplacePage() {
   ];
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Card
-        title={
-          <span style={{ fontSize: '20px', fontWeight: 600 }}>
-            Bond Marketplace
-          </span>
-        }
-        extra={
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={fetchBonds}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 50 }}>
-            <Spin size="large" />
-          </div>
-        ) : bonds.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 50, color: '#666' }}>
-            No published bonds available for trading yet.
-          </div>
-        ) : (
-          <Table
-            columns={columns}
-            dataSource={bonds}
-            rowKey="id"
-            pagination={{ pageSize: 10 }}
-            style={{ marginTop: 16 }}
-          />
-        )}
-      </Card>
-    </div>
+    <AuthGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        <Card
+          title={
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>
+              Bond Marketplace
+            </span>
+          }
+          extra={
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchBonds}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+          }
+        >
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 50 }}>
+              <Spin size="large" />
+            </div>
+          ) : bonds.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 50, color: '#666' }}>
+              No published bonds available for trading yet.
+            </div>
+          ) : (
+            <Table
+              columns={columns}
+              dataSource={bonds}
+              rowKey="id"
+              pagination={{ pageSize: 10 }}
+              style={{ marginTop: 16 }}
+            />
+          )}
+        </Card>
+      </div>
+    </AuthGuard>
   );
 }

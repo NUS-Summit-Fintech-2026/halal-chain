@@ -7,6 +7,7 @@ import { useState, useEffect, use, useCallback } from 'react';
 import PriceChart from '@/app/component/pricechart';
 import OrderBook from '@/app/component/orderbook';
 import TradingSection from '@/app/component/purchase';
+import AuthGuard from '@/app/component/AuthGuard';
 
 const { Title, Text } = Typography;
 
@@ -130,54 +131,56 @@ export default function AssetTradePage({ params }: { params: Promise<{ assetId: 
   }
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Button
-        icon={<ArrowLeftOutlined />}
-        onClick={() => router.back()}
-        style={{ marginBottom: 16 }}
-      >
-        Back to Marketplace
-      </Button>
+    <AuthGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => router.back()}
+          style={{ marginBottom: 16 }}
+        >
+          Back to Marketplace
+        </Button>
 
-      {/* Asset Header */}
-      <Card style={{ marginBottom: 24 }}>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Title level={3} style={{ margin: 0 }}>{asset.name}</Title>
-          <Text type="secondary">{asset.code} • {asset.issuer}</Text>
-          <Space size="large" style={{ marginTop: 8 }}>
-            <Text>Realization: <strong>{asset.maturityDate}</strong></Text>
-            <Text>Expected Return: <strong>{asset.expectedReturn}</strong></Text>
-            <Text>Total Tokens: <strong>{asset.totalValue.toLocaleString()}</strong></Text>
-            {asset.currentValuationXrp && (
-              <Text>Valuation: <strong>{asset.currentValuationXrp.toLocaleString()} XRP</strong></Text>
-            )}
+        {/* Asset Header */}
+        <Card style={{ marginBottom: 24 }}>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Title level={3} style={{ margin: 0 }}>{asset.name}</Title>
+            <Text type="secondary">{asset.code} • {asset.issuer}</Text>
+            <Space size="large" style={{ marginTop: 8 }}>
+              <Text>Realization: <strong>{asset.maturityDate}</strong></Text>
+              <Text>Expected Return: <strong>{asset.expectedReturn}</strong></Text>
+              <Text>Total Tokens: <strong>{asset.totalValue.toLocaleString()}</strong></Text>
+              {asset.currentValuationXrp && (
+                <Text>Valuation: <strong>{asset.currentValuationXrp.toLocaleString()} XRP</strong></Text>
+              )}
+            </Space>
           </Space>
-        </Space>
-      </Card>
+        </Card>
 
-      {/* Price Chart */}
-      <PriceChart
-        bondId={asset.id}
-        basePrice={lowestSellPrice}
-        profitRate={asset.profitRate}
-        onPriceUpdate={setCurrentPrice}
-      />
+        {/* Price Chart */}
+        <PriceChart
+          bondId={asset.id}
+          basePrice={lowestSellPrice}
+          profitRate={asset.profitRate}
+          onPriceUpdate={setCurrentPrice}
+        />
 
-      {/* Order Book */}
-      <OrderBook
-        key={orderbookKey}
-        currencyCode={asset.currencyCode}
-        issuerAddress={asset.issuerAddress}
-        currentPrice={currentPrice}
-      />
+        {/* Order Book */}
+        <OrderBook
+          key={orderbookKey}
+          currencyCode={asset.currencyCode}
+          issuerAddress={asset.issuerAddress}
+          currentPrice={currentPrice}
+        />
 
-      {/* Trading Section - Buy/Sell */}
-      <TradingSection
-        bond={asset}
-        currentPrice={lowestSellPrice}
-        availableTokens={availableTokens}
-        onTradeSuccess={onTradeSuccess}
-      />
-    </div>
+        {/* Trading Section - Buy/Sell */}
+        <TradingSection
+          bond={asset}
+          currentPrice={lowestSellPrice}
+          availableTokens={availableTokens}
+          onTradeSuccess={onTradeSuccess}
+        />
+      </div>
+    </AuthGuard>
   );
 }

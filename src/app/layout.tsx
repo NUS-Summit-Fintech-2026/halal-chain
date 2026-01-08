@@ -44,11 +44,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AntdProvider from "./AntdProvider";
-import Sidebar from "./component/sidebar";
-import { Layout } from "antd";
+import LayoutWrapper from "./component/LayoutWrapper";
 import { AuthProvider } from "@/context/AuthContext";
-
-const { Content } = Layout;
+import { AdminAuthProvider } from "@/context/AdminAuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,12 +75,11 @@ export default function RootLayout({
       >
         <AntdProvider>
           <AuthProvider>
-            <Layout style={{ minHeight: '100vh' }}>
-              <Sidebar />
-              <Layout style={{ marginLeft: 220 }}>
+            <AdminAuthProvider>
+              <LayoutWrapper>
                 {children}
-              </Layout>
-            </Layout>
+              </LayoutWrapper>
+            </AdminAuthProvider>
           </AuthProvider>
         </AntdProvider>
       </body>

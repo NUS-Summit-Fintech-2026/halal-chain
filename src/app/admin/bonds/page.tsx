@@ -4,6 +4,7 @@ import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Ta
 import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminGuard from '@/app/component/AdminGuard';
 
 interface Bond {
   id: string;
@@ -88,7 +89,7 @@ export default function BondsPage() {
   };
 
   const handlePublish = (bond: Bond) => {
-    router.push(`/publish?bondCode=${bond.code}`);
+    router.push(`/admin/bonds/publish?bondCode=${bond.code}`);
   };
 
   const handleViewTreasury = (bond: Bond) => {
@@ -307,13 +308,14 @@ export default function BondsPage() {
   ];
 
   return (
-    <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Card
-        title={
-          <span style={{ fontSize: '20px', fontWeight: 600 }}>
-            Bond Management
-          </span>
-        }
+    <AdminGuard>
+      <div style={{ marginLeft: 20, padding: '24px' }}>
+        <Card
+          title={
+            <span style={{ fontSize: '20px', fontWeight: 600 }}>
+              Bond Management
+            </span>
+          }
         extra={
           <Space>
             <Button
@@ -425,7 +427,8 @@ export default function BondsPage() {
             />
           </Form.Item>
         </Form>
-      </Modal>
-    </div>
+        </Modal>
+      </div>
+    </AdminGuard>
   );
 }

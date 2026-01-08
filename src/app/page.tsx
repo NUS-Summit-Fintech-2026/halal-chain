@@ -112,7 +112,7 @@
 // src/app/page.tsx
 'use client';
 
-import { Card, Typography, Row, Col, Statistic, Button, Space } from 'antd';
+import { Card, Typography, Row, Col, Statistic, Button, Space, Spin } from 'antd';
 import {
   BankOutlined,
   RocketOutlined,
@@ -124,11 +124,30 @@ import {
   CheckCircleOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 const { Title, Paragraph } = Typography;
 
 export default function Home() {
   const router = useRouter();
+  const { user, isLoading } = useAuth();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
+
+  // Show loading while checking auth
+  if (isLoading || !user) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   const features = [
     {

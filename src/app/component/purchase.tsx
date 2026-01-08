@@ -1,8 +1,8 @@
 'use client';
 
-import { Card, Button, InputNumber, Typography, Space, Statistic, Row, Col, Divider, message, Radio } from 'antd';
-import { ShoppingCartOutlined, WalletOutlined, DollarOutlined } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { Card, Button, InputNumber, Typography, Space, Statistic, Row, Col, Divider, message } from 'antd';
+import { ShoppingCartOutlined, LoadingOutlined } from '@ant-design/icons';
+import { useState } from 'react';
 
 const { Title, Text } = Typography;
 
@@ -21,34 +21,49 @@ interface PurchaseSectionProps {
 
 export default function PurchaseSection({ bond, currentPrice, availableTokens }: PurchaseSectionProps) {
   const [quantity, setQuantity] = useState(1);
-  const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
-  const [limitPrice, setLimitPrice] = useState(currentPrice);
+  const [loading, setLoading] = useState(false);
 
-  // Update limit price when current price changes
-  useEffect(() => {
-    setLimitPrice(currentPrice);
-  }, [currentPrice]);
+  const totalCost = quantity * currentPrice;
 
-  const userBalance = 50000;
-  const pricePerToken = orderType === 'market' ? currentPrice : limitPrice;
-  const totalCost = quantity * pricePerToken;
-
-  const handlePurchase = () => {
-    if (totalCost > userBalance) {
-      message.error('Insufficient balance');
-      return;
-    }
-
+  const handlePurchase = async () => {
     if (quantity > availableTokens) {
       message.error('Quantity exceeds available tokens');
       return;
     }
 
-    const orderTypeText = orderType === 'market' ? 'Market' : 'Limit';
-    message.success(
-      `${orderTypeText} order placed: ${quantity} tokens at ${pricePerToken.toFixed(6)} XRP (Total: ${totalCost.toFixed(6)} XRP)`
-    );
-    setQuantity(1);
+    if (currentPrice <= 0) {
+      message.error('No sell orders available');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/xrpl/buy/${bond.code}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tokenAmount: quantity,
+          pricePerToken: currentPrice,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        message.success(
+          `Order placed successfully! Bought ${data.data.tokenAmount} tokens at ${data.data.pricePerToken} XRP`
+        );
+        setQuantity(1);
+      } else {
+        message.error(data.error || 'Failed to place order');
+      }
+    } catch (error) {
+      message.error('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -107,105 +122,61 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
 
         {/* Order Details */}
         <Col span={12}>
-          <Card 
-            type="inner" 
-            title="Order Details"
+          <Card
+            type="inner"
+            title="Market Order"
             style={{ background: '#f6ffed', borderColor: '#b7eb8f' }}
           >
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              {/* Order Type */}
-              <div>
-                <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                  Order Type
-                </Text>
-                <Radio.Group 
-                  value={orderType} 
-                  onChange={(e) => setOrderType(e.target.value)}
-                  buttonStyle="solid"
-                >
-                  <Radio.Button value="market">Market Order</Radio.Button>
-                  <Radio.Button value="limit">Limit Order</Radio.Button>
-                </Radio.Group>
-              </div>
-
-              {/* Limit Price (only for limit orders) */}
-              {orderType === 'limit' && (
-                <div>
-                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                    Limit Price (XRP)
-                  </Text>
-                  <InputNumber
-                    min={0.000001}
-                    value={limitPrice}
-                    onChange={(val) => setLimitPrice(val || currentPrice)}
-                    style={{ width: '100%' }}
-                    size="large"
-                    precision={6}
-                    step={0.000001}
-                    prefix={<DollarOutlined />}
-                  />
-                </div>
-              )}
-
               {/* Quantity */}
               <div>
                 <Text strong style={{ display: 'block', marginBottom: 8 }}>
                   Number of Tokens
                 </Text>
-                <InputNumber 
-                  min={1} 
-                  max={availableTokens}
+                <InputNumber
+                  min={1}
+                  max={availableTokens || undefined}
                   value={quantity}
                   onChange={(val) => setQuantity(val || 1)}
                   style={{ width: '100%' }}
                   size="large"
+                  disabled={loading}
                 />
               </div>
 
               <Divider style={{ margin: '12px 0' }} />
 
               {/* Cost Summary */}
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Statistic
-                    title="Total Cost"
-                    value={totalCost}
-                    precision={6}
-                    suffix="XRP"
-                    valueStyle={{ color: '#1890ff' }}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Your Balance"
-                    value={userBalance}
-                    suffix="XRP"
-                    prefix={<WalletOutlined />}
-                  />
-                </Col>
-              </Row>
+              <Statistic
+                title="Total Cost"
+                value={totalCost}
+                precision={6}
+                suffix="XRP"
+                valueStyle={{ color: '#1890ff' }}
+              />
 
               {/* Purchase Button */}
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 size="large"
                 block
-                icon={<ShoppingCartOutlined />}
+                icon={loading ? <LoadingOutlined /> : <ShoppingCartOutlined />}
                 onClick={handlePurchase}
-                disabled={totalCost > userBalance || quantity > availableTokens}
+                disabled={quantity > availableTokens || availableTokens === 0 || loading}
+                loading={loading}
               >
-                {orderType === 'market' ? 'Buy Now' : 'Place Limit Order'}
+                {loading ? 'Processing...' : 'Buy Now'}
               </Button>
 
               {/* Error Messages */}
-              {totalCost > userBalance && (
-                <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
-                  Insufficient balance
-                </Text>
-              )}
-              {quantity > availableTokens && (
+              {quantity > availableTokens && availableTokens > 0 && (
                 <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
                   Quantity exceeds available tokens
+                </Text>
+              )}
+              {availableTokens === 0 && (
+                <Text type="warning" style={{ display: 'block', textAlign: 'center' }}>
+                  No tokens available for purchase
                 </Text>
               )}
             </Space>

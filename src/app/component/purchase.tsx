@@ -1,13 +1,13 @@
 'use client';
 
-import { Card, Button, InputNumber, Typography, Space, Statistic, Row, Col, Divider, message } from 'antd';
-import { ShoppingCartOutlined, LoadingOutlined, LoginOutlined, WalletOutlined } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { Card, Button, InputNumber, Typography, Space, Statistic, Divider, message, Tabs } from 'antd';
+import { ShoppingCartOutlined, LoadingOutlined, LoginOutlined, WalletOutlined, DollarOutlined } from '@ant-design/icons';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
-interface PurchaseSectionProps {
+interface TradingSectionProps {
   bond: {
     id: string;
     name: string;
@@ -15,74 +15,108 @@ interface PurchaseSectionProps {
     issuer: string;
     maturityDate: string;
     expectedReturn: string;
+    currencyCode: string;
+    issuerAddress: string;
   };
   currentPrice: number;
   availableTokens: number;
+  onTradeSuccess?: () => void;
 }
 
-export default function PurchaseSection({ bond, currentPrice, availableTokens }: PurchaseSectionProps) {
-  const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(false);
+export default function TradingSection({ bond, currentPrice, availableTokens, onTradeSuccess }: TradingSectionProps) {
+  const [activeTab, setActiveTab] = useState('buy');
+
+  // Buy state
+  const [buyQuantity, setBuyQuantity] = useState(1);
+  const [buyPrice, setBuyPrice] = useState(currentPrice || 0);
+  const [buyLoading, setBuyLoading] = useState(false);
+
+  // Sell state
+  const [sellQuantity, setSellQuantity] = useState(1);
+  const [sellPrice, setSellPrice] = useState(currentPrice || 0);
+  const [sellLoading, setSellLoading] = useState(false);
+
+  // Balance state
   const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
+
   const { user, getAuthHeader } = useAuth();
 
-  const totalCost = quantity * currentPrice;
-  const hasInsufficientBalance = userBalance !== null && totalCost > userBalance;
+  const buyTotalCost = buyQuantity * buyPrice;
+  const sellTotalValue = sellQuantity * sellPrice;
+  const hasInsufficientXrp = userBalance !== null && buyTotalCost > userBalance;
+  const hasInsufficientTokens = sellQuantity > tokenBalance;
 
-  // Fetch user balance when user is logged in
-  useEffect(() => {
+  // Fetch user balances (XRP and tokens)
+  const fetchBalances = useCallback(async () => {
     if (!user) {
       setUserBalance(null);
+      setTokenBalance(0);
       return;
     }
 
-    const fetchBalance = async () => {
-      setBalanceLoading(true);
-      try {
-        const res = await fetch('/api/me/balance', {
-          headers: {
-            ...getAuthHeader(),
-          },
-        });
+    setBalanceLoading(true);
+    try {
+      const res = await fetch('/api/me/balance', {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
 
-        const data = await res.json();
+      const data = await res.json();
 
-        if (res.ok && data.ok) {
-          setUserBalance(data.xrpBalance);
-        }
-      } catch (error) {
-        console.error('Failed to fetch balance:', error);
-      } finally {
-        setBalanceLoading(false);
+      if (res.ok && data.ok) {
+        setUserBalance(data.xrpBalance);
+
+        // Find token balance for this specific bond using currencyCode and issuerAddress
+        const bondToken = data.balances?.find(
+          (b: { currency: string; issuer?: string }) =>
+            b.currency === bond.currencyCode && b.issuer === bond.issuerAddress
+        );
+        setTokenBalance(bondToken ? parseFloat(bondToken.value) : 0);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch balance:', error);
+    } finally {
+      setBalanceLoading(false);
+    }
+  }, [user, getAuthHeader, bond.currencyCode, bond.issuerAddress]);
 
-    fetchBalance();
-  }, [user]);
+  useEffect(() => {
+    fetchBalances();
+  }, [fetchBalances]);
 
-  const handlePurchase = async () => {
+  // Update buy/sell price when currentPrice changes
+  useEffect(() => {
+    if (currentPrice > 0) {
+      setBuyPrice(currentPrice);
+      setSellPrice(currentPrice);
+    }
+  }, [currentPrice]);
+
+  const handleBuy = async () => {
     if (!user) {
       message.error('Please sign in to purchase tokens');
       return;
     }
 
-    if (quantity > availableTokens) {
-      message.error('Quantity exceeds available tokens');
+    if (buyQuantity <= 0) {
+      message.error('Please enter a valid quantity');
       return;
     }
 
-    if (currentPrice <= 0) {
-      message.error('No sell orders available');
+    if (buyPrice <= 0) {
+      message.error('Please enter a valid price');
       return;
     }
 
-    if (hasInsufficientBalance) {
+    if (hasInsufficientXrp) {
       message.error('Insufficient XRP balance');
       return;
     }
 
-    setLoading(true);
+    setBuyLoading(true);
     try {
       const res = await fetch(`/api/xrpl/buy/${bond.code}`, {
         method: 'POST',
@@ -91,8 +125,10 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
           ...getAuthHeader(),
         },
         body: JSON.stringify({
-          tokenAmount: quantity,
-          pricePerToken: currentPrice,
+          tokenAmount: buyQuantity,
+          pricePerToken: buyPrice,
+          currencyCode: bond.currencyCode,
+          issuerAddress: bond.issuerAddress,
         }),
       });
 
@@ -100,163 +136,304 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
 
       if (res.ok && data.success) {
         message.success(
-          `Order placed successfully! Bought ${data.data.tokenAmount} tokens at ${data.data.pricePerToken} XRP`
+          `Buy order placed! Buying ${data.data.tokenAmount} tokens at ${data.data.pricePerToken} XRP each`
         );
-        setQuantity(1);
+        setBuyQuantity(1);
+        // Refresh balances and orderbook after purchase
+        fetchBalances();
+        onTradeSuccess?.();
       } else {
         message.error(data.error || 'Failed to place order');
       }
     } catch (error) {
       message.error('Network error. Please try again.');
     } finally {
-      setLoading(false);
+      setBuyLoading(false);
     }
   };
 
+  const handleSell = async () => {
+    if (!user) {
+      message.error('Please sign in to sell tokens');
+      return;
+    }
+
+    if (sellQuantity <= 0) {
+      message.error('Please enter a valid quantity');
+      return;
+    }
+
+    if (sellPrice <= 0) {
+      message.error('Please enter a valid price');
+      return;
+    }
+
+    if (hasInsufficientTokens) {
+      message.error('Insufficient token balance');
+      return;
+    }
+
+    setSellLoading(true);
+    try {
+      const res = await fetch(`/api/xrpl/sell/${bond.code}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({
+          tokenAmount: sellQuantity,
+          pricePerToken: sellPrice,
+          currencyCode: bond.currencyCode,
+          issuerAddress: bond.issuerAddress,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        message.success(
+          `Sell order placed! Selling ${data.data.tokenAmount} tokens at ${data.data.pricePerToken} XRP each`
+        );
+        setSellQuantity(1);
+        // Refresh balances and orderbook after sell order
+        fetchBalances();
+        onTradeSuccess?.();
+      } else {
+        message.error(data.error || 'Failed to place sell order');
+      }
+    } catch (error) {
+      message.error('Network error. Please try again.');
+    } finally {
+      setSellLoading(false);
+    }
+  };
+
+  const renderBuyTab = () => (
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      {/* XRP Balance */}
+      {user && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 6 }}>
+          <WalletOutlined style={{ color: '#52c41a' }} />
+          <Text>
+            Your XRP:{' '}
+            {balanceLoading ? (
+              <LoadingOutlined style={{ marginLeft: 4 }} />
+            ) : (
+              <Text strong style={{ color: hasInsufficientXrp ? '#ff4d4f' : '#52c41a' }}>
+                {userBalance?.toFixed(2) ?? '—'} XRP
+              </Text>
+            )}
+          </Text>
+        </div>
+      )}
+
+      {/* Quantity */}
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Number of Tokens to Buy
+        </Text>
+        <InputNumber
+          min={1}
+          value={buyQuantity}
+          onChange={(val) => setBuyQuantity(val || 1)}
+          style={{ width: '100%' }}
+          size="large"
+          disabled={buyLoading}
+        />
+      </div>
+
+      {/* Price */}
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Price per Token (XRP)
+        </Text>
+        <InputNumber
+          min={0.000001}
+          step={0.001}
+          value={buyPrice}
+          onChange={(val) => setBuyPrice(val || 0)}
+          style={{ width: '100%' }}
+          size="large"
+          disabled={buyLoading}
+          precision={6}
+        />
+        <Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: 'block' }}>
+          Current market price: {currentPrice.toFixed(6)} XRP
+        </Text>
+      </div>
+
+      <Divider style={{ margin: '12px 0' }} />
+
+      {/* Cost Summary */}
+      <Statistic
+        title="Total Cost"
+        value={buyTotalCost}
+        precision={6}
+        suffix="XRP"
+        valueStyle={{ color: hasInsufficientXrp ? '#ff4d4f' : '#52c41a' }}
+      />
+
+      {/* Buy Button */}
+      <Button
+        type="primary"
+        size="large"
+        block
+        icon={buyLoading ? <LoadingOutlined /> : (user ? <ShoppingCartOutlined /> : <LoginOutlined />)}
+        onClick={handleBuy}
+        disabled={!user || buyQuantity <= 0 || buyPrice <= 0 || buyLoading || hasInsufficientXrp}
+        loading={buyLoading}
+        style={{ background: '#52c41a', borderColor: '#52c41a' }}
+      >
+        {buyLoading ? 'Processing...' : (user ? 'Place Buy Order' : 'Sign In to Buy')}
+      </Button>
+
+      {/* Error Messages */}
+      {!user && (
+        <Text type="secondary" style={{ display: 'block', textAlign: 'center' }}>
+          Please sign in to purchase tokens
+        </Text>
+      )}
+      {user && hasInsufficientXrp && (
+        <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
+          Insufficient XRP balance
+        </Text>
+      )}
+    </Space>
+  );
+
+  const renderSellTab = () => (
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      {/* Token Balance */}
+      {user && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 6 }}>
+          <DollarOutlined style={{ color: '#1890ff' }} />
+          <Text>
+            Your {bond.currencyCode} Tokens:{' '}
+            {balanceLoading ? (
+              <LoadingOutlined style={{ marginLeft: 4 }} />
+            ) : (
+              <Text strong style={{ color: tokenBalance > 0 ? '#1890ff' : '#999' }}>
+                {tokenBalance}
+              </Text>
+            )}
+          </Text>
+        </div>
+      )}
+
+      {/* Quantity */}
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Number of Tokens to Sell
+        </Text>
+        <InputNumber
+          min={1}
+          max={tokenBalance || undefined}
+          value={sellQuantity}
+          onChange={(val) => setSellQuantity(val || 1)}
+          style={{ width: '100%' }}
+          size="large"
+          disabled={sellLoading}
+        />
+      </div>
+
+      {/* Price */}
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Price per Token (XRP)
+        </Text>
+        <InputNumber
+          min={0.000001}
+          step={0.001}
+          value={sellPrice}
+          onChange={(val) => setSellPrice(val || 0)}
+          style={{ width: '100%' }}
+          size="large"
+          disabled={sellLoading}
+          precision={6}
+        />
+        <Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: 'block' }}>
+          Current market price: {currentPrice.toFixed(6)} XRP
+        </Text>
+      </div>
+
+      <Divider style={{ margin: '12px 0' }} />
+
+      {/* Value Summary */}
+      <Statistic
+        title="Total Value"
+        value={sellTotalValue}
+        precision={6}
+        suffix="XRP"
+        valueStyle={{ color: '#fa541c' }}
+      />
+
+      {/* Sell Button */}
+      <Button
+        type="primary"
+        size="large"
+        block
+        danger
+        icon={sellLoading ? <LoadingOutlined /> : (user ? <DollarOutlined /> : <LoginOutlined />)}
+        onClick={handleSell}
+        disabled={!user || sellQuantity <= 0 || sellPrice <= 0 || sellLoading || hasInsufficientTokens || tokenBalance === 0}
+        loading={sellLoading}
+      >
+        {sellLoading ? 'Processing...' : (user ? 'Place Sell Order' : 'Sign In to Sell')}
+      </Button>
+
+      {/* Error Messages */}
+      {!user && (
+        <Text type="secondary" style={{ display: 'block', textAlign: 'center' }}>
+          Please sign in to sell tokens
+        </Text>
+      )}
+      {user && hasInsufficientTokens && tokenBalance > 0 && (
+        <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
+          Quantity exceeds your token balance
+        </Text>
+      )}
+      {user && tokenBalance === 0 && (
+        <Text type="warning" style={{ display: 'block', textAlign: 'center' }}>
+          You don't have any {bond.currencyCode} tokens to sell
+        </Text>
+      )}
+    </Space>
+  );
+
   return (
-    <Card 
+    <Card
       title={
         <span style={{ fontSize: '20px', fontWeight: 600 }}>
-          Purchase Tokens
+          Trade {bond.currencyCode}
         </span>
       }
     >
-      <Row gutter={24}>
-        {/* Bond Summary */}
-        <Col span={12}>
-          <Card 
-            type="inner" 
-            title="Bond Summary"
-            style={{ background: '#fafafa' }}
-          >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              <div>
-                <Title level={4} style={{ marginBottom: 8 }}>
-                  {bond.name}
-                </Title>
-                <Text type="secondary">{bond.issuer}</Text>
-              </div>
-
-              <Divider style={{ margin: '12px 0' }} />
-
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Statistic
-                    title="Current Price"
-                    value={currentPrice}
-                    precision={6}
-                    suffix="XRP"
-                    valueStyle={{ color: '#1890ff' }}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Available"
-                    value={availableTokens}
-                    suffix="tokens"
-                  />
-                </Col>
-              </Row>
-
-              <div>
-                <Text type="secondary">Maturity: {bond.maturityDate}</Text>
-                <br />
-                <Text type="secondary">Expected Return: {bond.expectedReturn}</Text>
-              </div>
-            </Space>
-          </Card>
-        </Col>
-
-        {/* Order Details */}
-        <Col span={12}>
-          <Card
-            type="inner"
-            title="Market Order"
-            style={{ background: '#f6ffed', borderColor: '#b7eb8f' }}
-          >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              {/* Quantity */}
-              <div>
-                <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                  Number of Tokens
-                </Text>
-                <InputNumber
-                  min={1}
-                  max={availableTokens || undefined}
-                  value={quantity}
-                  onChange={(val) => setQuantity(val || 1)}
-                  style={{ width: '100%' }}
-                  size="large"
-                  disabled={loading}
-                />
-              </div>
-
-              <Divider style={{ margin: '12px 0' }} />
-
-              {/* Cost Summary */}
-              <Statistic
-                title="Total Cost"
-                value={totalCost}
-                precision={6}
-                suffix="XRP"
-                valueStyle={{ color: hasInsufficientBalance ? '#ff4d4f' : '#1890ff' }}
-              />
-
-              {/* User Balance */}
-              {user && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <WalletOutlined style={{ color: '#52c41a' }} />
-                  <Text>
-                    Your Balance:{' '}
-                    {balanceLoading ? (
-                      <LoadingOutlined style={{ marginLeft: 4 }} />
-                    ) : (
-                      <Text strong style={{ color: hasInsufficientBalance ? '#ff4d4f' : '#52c41a' }}>
-                        {userBalance?.toFixed(2) ?? '—'} XRP
-                      </Text>
-                    )}
-                  </Text>
-                </div>
-              )}
-
-              {/* Purchase Button */}
-              <Button
-                type="primary"
-                size="large"
-                block
-                icon={loading ? <LoadingOutlined /> : (user ? <ShoppingCartOutlined /> : <LoginOutlined />)}
-                onClick={handlePurchase}
-                disabled={!user || quantity > availableTokens || availableTokens === 0 || loading || hasInsufficientBalance}
-                loading={loading}
-              >
-                {loading ? 'Processing...' : (user ? 'Buy Now' : 'Sign In to Buy')}
-              </Button>
-
-              {/* Error Messages */}
-              {!user && (
-                <Text type="secondary" style={{ display: 'block', textAlign: 'center' }}>
-                  Please sign in to purchase tokens
-                </Text>
-              )}
-              {user && quantity > availableTokens && availableTokens > 0 && (
-                <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
-                  Quantity exceeds available tokens
-                </Text>
-              )}
-              {user && hasInsufficientBalance && (
-                <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
-                  Insufficient XRP balance
-                </Text>
-              )}
-              {availableTokens === 0 && (
-                <Text type="warning" style={{ display: 'block', textAlign: 'center' }}>
-                  No tokens available for purchase
-                </Text>
-              )}
-            </Space>
-          </Card>
-        </Col>
-      </Row>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        centered
+        items={[
+          {
+            key: 'buy',
+            label: (
+              <span style={{ color: activeTab === 'buy' ? '#52c41a' : undefined }}>
+                <ShoppingCartOutlined /> Buy
+              </span>
+            ),
+            children: renderBuyTab(),
+          },
+          {
+            key: 'sell',
+            label: (
+              <span style={{ color: activeTab === 'sell' ? '#ff4d4f' : undefined }}>
+                <DollarOutlined /> Sell
+              </span>
+            ),
+            children: renderSellTab(),
+          },
+        ]}
+      />
     </Card>
   );
 }

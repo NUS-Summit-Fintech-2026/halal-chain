@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { errorResponse, requireUser } from '@/lib/api-utils';
 
-// POST /api/xrpl/buy/[bondCode] - Buy tokens for a bond
+// POST /api/xrpl/buy/[bondCode] - Place a buy order for tokens
+// General API - accepts currencyCode and issuerAddress directly
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ bondCode: string }> }
@@ -15,42 +15,60 @@ export async function POST(
     const apiHelper = await import('@/app/tool/apiHelper.js') as any;
 
     const body = await request.json();
-    const { tokenAmount, pricePerToken } = body;
+    const { tokenAmount, pricePerToken, currencyCode, issuerAddress } = body;
 
+    // Validate required fields
     if (tokenAmount == null || pricePerToken == null) {
       return errorResponse('tokenAmount and pricePerToken are required');
     }
 
-    const bond = await (prisma as any).bond.findUnique({ where: { code: bondCode } });
-    if (!bond) {
-      return errorResponse('Bond not found', 404);
+    if (!currencyCode || !issuerAddress) {
+      return errorResponse('currencyCode and issuerAddress are required');
     }
 
-    if (bond.status !== 'PUBLISHED') {
-      return errorResponse('Bond not published');
+    if (tokenAmount <= 0) {
+      return errorResponse('tokenAmount must be greater than 0');
     }
 
-    if (!bond.currencyCode) {
-      return errorResponse('Bond missing currencyCode');
+    if (pricePerToken <= 0) {
+      return errorResponse('pricePerToken must be greater than 0');
+    }
+
+    // Check if user has enough XRP to buy
+    const totalCost = Number(tokenAmount) * Number(pricePerToken);
+    const balanceResult = await apiHelper.getWalletBalances(user.walletAddress);
+    if (!balanceResult.success) {
+      return errorResponse(`Failed to check balance: ${balanceResult.error}`);
+    }
+
+    const xrpBalance = balanceResult.data.balances.find(
+      (b: { currency: string }) => b.currency === 'XRP'
+    );
+    const availableXrp = xrpBalance ? parseFloat(xrpBalance.value) : 0;
+
+    // Account for reserve (10 XRP base + some buffer)
+    const reserveBuffer = 15;
+    if (availableXrp - reserveBuffer < totalCost) {
+      return errorResponse(`Insufficient XRP balance. You have ${availableXrp.toFixed(2)} XRP (${reserveBuffer} XRP reserved), need ${totalCost.toFixed(6)} XRP`);
     }
 
     // Ensure trust line exists before buying
     const trustLineResult = await apiHelper.ensureTrustLine(
       user.walletSeed,
-      bond.currencyCode,
-      bond.issuerAddress,
-      bond.totalTokens
+      currencyCode,
+      issuerAddress,
+      1000000 // Default trust limit
     );
 
     if (!trustLineResult.success) {
       return errorResponse(`Failed to set up trust line: ${trustLineResult.error}`);
     }
 
-    // Now buy tokens
+    // Place buy order
     const r = await apiHelper.buyTokens({
       buyerSeed: user.walletSeed,
-      currencyCode: bond.currencyCode,
-      issuerAddress: bond.issuerAddress,
+      currencyCode,
+      issuerAddress,
       tokenAmount: Number(tokenAmount),
       pricePerToken: Number(pricePerToken),
     });
@@ -60,7 +78,16 @@ export async function POST(
     }
 
     return NextResponse.json({
-      ...r,
+      success: true,
+      data: {
+        type: 'buy',
+        tokenAmount: Number(tokenAmount),
+        pricePerToken: Number(pricePerToken),
+        totalXrp: totalCost,
+        currencyCode,
+        issuerAddress,
+        txHash: r.data?.txHash,
+      },
       trustLine: trustLineResult.data,
     });
   } catch (e) {

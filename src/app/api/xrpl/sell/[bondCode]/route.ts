@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { errorResponse, requireUser } from '@/lib/api-utils';
 
-// POST /api/xrpl/sell/[bondCode] - Sell tokens for a bond
+// POST /api/xrpl/sell/[bondCode] - Place a sell order for tokens
+// General API - accepts currencyCode and issuerAddress directly
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ bondCode: string }> }
@@ -15,29 +15,46 @@ export async function POST(
     const apiHelper = await import('@/app/tool/apiHelper.js') as any;
 
     const body = await request.json();
-    const { tokenAmount, pricePerToken } = body;
+    const { tokenAmount, pricePerToken, currencyCode, issuerAddress } = body;
 
+    // Validate required fields
     if (tokenAmount == null || pricePerToken == null) {
       return errorResponse('tokenAmount and pricePerToken are required');
     }
 
-    const bond = await (prisma as any).bond.findUnique({ where: { code: bondCode } });
-    if (!bond) {
-      return errorResponse('Bond not found', 404);
+    if (!currencyCode || !issuerAddress) {
+      return errorResponse('currencyCode and issuerAddress are required');
     }
 
-    if (bond.status !== 'PUBLISHED') {
-      return errorResponse('Bond not published');
+    if (tokenAmount <= 0) {
+      return errorResponse('tokenAmount must be greater than 0');
     }
 
-    if (!bond.currencyCode) {
-      return errorResponse('Bond missing currencyCode');
+    if (pricePerToken <= 0) {
+      return errorResponse('pricePerToken must be greater than 0');
     }
 
+    // Check if user has enough tokens to sell
+    const balanceResult = await apiHelper.getWalletBalances(user.walletAddress);
+    if (!balanceResult.success) {
+      return errorResponse(`Failed to check balance: ${balanceResult.error}`);
+    }
+
+    const tokenBalance = balanceResult.data.balances.find(
+      (b: { currency: string; issuer?: string }) =>
+        b.currency === currencyCode && b.issuer === issuerAddress
+    );
+
+    const availableTokens = tokenBalance ? parseFloat(tokenBalance.value) : 0;
+    if (availableTokens < tokenAmount) {
+      return errorResponse(`Insufficient token balance. You have ${availableTokens} tokens, trying to sell ${tokenAmount}`);
+    }
+
+    // Place sell order
     const r = await apiHelper.sellTokens({
       sellerSeed: user.walletSeed,
-      currencyCode: bond.currencyCode,
-      issuerAddress: bond.issuerAddress,
+      currencyCode,
+      issuerAddress,
       tokenAmount: Number(tokenAmount),
       pricePerToken: Number(pricePerToken),
     });
@@ -46,7 +63,18 @@ export async function POST(
       return NextResponse.json(r, { status: 400 });
     }
 
-    return NextResponse.json(r);
+    return NextResponse.json({
+      success: true,
+      data: {
+        type: 'sell',
+        tokenAmount: Number(tokenAmount),
+        pricePerToken: Number(pricePerToken),
+        totalXrp: Number(tokenAmount) * Number(pricePerToken),
+        currencyCode,
+        issuerAddress,
+        txHash: r.data?.txHash,
+      },
+    });
   } catch (e) {
     return errorResponse(String(e));
   }

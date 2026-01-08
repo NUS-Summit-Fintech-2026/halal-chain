@@ -3,10 +3,10 @@
 import { Card, Button, Space, Typography, Spin } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
 import PriceChart from '@/app/component/pricechart';
 import OrderBook from '@/app/component/orderbook';
-import PurchaseSection from '@/app/component/purchase';
+import TradingSection from '@/app/component/purchase';
 
 const { Title, Text } = Typography;
 
@@ -19,6 +19,8 @@ interface BondDetails {
   expectedReturn: string;
   profitRate: number;
   totalValue: number;
+  currencyCode: string;
+  issuerAddress: string;
 }
 
 interface SellOrder {
@@ -35,9 +37,10 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
   const [sellOrders, setSellOrders] = useState<SellOrder[]>([]);
   const [availableTokens, setAvailableTokens] = useState(0);
   const [lowestSellPrice, setLowestSellPrice] = useState(1);
+  const [orderbookKey, setOrderbookKey] = useState(0);
 
   // Fetch orderbook data
-  const fetchOrderBook = async (bondCode: string) => {
+  const fetchOrderBook = useCallback(async (bondCode: string) => {
     try {
       const res = await fetch(`/api/xrpl/orderbook/${bondCode}`);
       const data = await res.json();
@@ -64,7 +67,16 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
     } catch (error) {
       console.error('Failed to fetch orderbook:', error);
     }
-  };
+  }, []);
+
+  // Callback to refetch orderbook - passed to TradingSection
+  const onTradeSuccess = useCallback(() => {
+    if (bond?.code) {
+      fetchOrderBook(bond.code);
+      // Increment key to force OrderBook component to refetch
+      setOrderbookKey(prev => prev + 1);
+    }
+  }, [bond?.code, fetchOrderBook]);
 
   useEffect(() => {
     // Fetch bond data from API
@@ -83,6 +95,8 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
             expectedReturn: `${(profitRate * 100).toFixed(1)}%`,
             profitRate: profitRate,
             totalValue: data.totalTokens,
+            currencyCode: data.currencyCode,
+            issuerAddress: data.issuerAddress,
           });
 
           // Fetch orderbook after getting bond code
@@ -99,6 +113,8 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
             expectedReturn: '5%',
             profitRate: 0.05,
             totalValue: 1000000,
+            currencyCode: '',
+            issuerAddress: '',
           });
         }
       } catch (error) {
@@ -111,6 +127,8 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
           expectedReturn: '5%',
           profitRate: 0.05,
           totalValue: 1000000,
+          currencyCode: '',
+          issuerAddress: '',
         });
       } finally {
         setLoading(false);
@@ -164,15 +182,17 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
 
       {/* Order Book */}
       <OrderBook
+        key={orderbookKey}
         bondCode={bond.code}
         currentPrice={currentPrice}
       />
 
-      {/* Purchase Section */}
-      <PurchaseSection
+      {/* Trading Section - Buy/Sell */}
+      <TradingSection
         bond={bond}
         currentPrice={lowestSellPrice}
         availableTokens={availableTokens}
+        onTradeSuccess={onTradeSuccess}
       />
     </div>
   );

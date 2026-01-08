@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, Button, Table, Space, Tag, Spin, message } from 'antd';
+import { Card, Button, Table, Space, Tag, Spin, message, Modal } from 'antd';
 import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ export default function RealAssetMarketplacePage() {
   const router = useRouter();
   const [assets, setAssets] = useState<RealAsset[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Fetch published assets from API
   const fetchAssets = async () => {
@@ -69,7 +70,7 @@ export default function RealAssetMarketplacePage() {
             borderRadius: 4,
             cursor: 'pointer',
           }}
-          onClick={() => window.open(value, '_blank')}
+          onClick={() => setPreviewImage(value)}
         />
       ) : '-',
     },
@@ -162,6 +163,30 @@ export default function RealAssetMarketplacePage() {
             />
           )}
         </Card>
+
+        {/* Image Preview Modal */}
+        <Modal
+          open={!!previewImage}
+          footer={null}
+          onCancel={() => setPreviewImage(null)}
+          centered
+          width="auto"
+          style={{ maxWidth: '90vw' }}
+          bodyStyle={{ padding: 0 }}
+        >
+          {previewImage && (
+            <img
+              src={previewImage}
+              alt="Asset Preview"
+              style={{
+                maxWidth: '85vw',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          )}
+        </Modal>
       </div>
     </AuthGuard>
   );

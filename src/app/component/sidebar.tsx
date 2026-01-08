@@ -1,6 +1,6 @@
 'use client';
 
-import { Layout, Menu, Button, Typography, message, Avatar } from 'antd';
+import { Layout, Menu, Button, Typography, message, Avatar, Modal, Descriptions, Tooltip } from 'antd';
 import {
   HomeOutlined,
   BankOutlined,
@@ -15,8 +15,11 @@ import {
   IdcardOutlined,
   LoginOutlined,
   SettingOutlined,
+  CopyOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 
@@ -28,6 +31,19 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, isLoading, signOut, getAuthHeader } = useAuth();
   const { admin, isLoading: adminLoading, signOut: adminSignOut } = useAdminAuth();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      message.success('Copied to clipboard!');
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      message.error('Failed to copy');
+    }
+  };
 
   const handleOpenWallet = async () => {
     if (!user) {
@@ -279,13 +295,26 @@ export default function Sidebar() {
             <div style={{ textAlign: 'center', padding: 8 }}>Loading...</div>
           ) : user ? (
             <div>
-              {/* User Profile Card */}
-              <div style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: 8,
-                padding: '12px',
-                marginBottom: 12,
-              }}>
+              {/* User Profile Card - Clickable */}
+              <div
+                onClick={() => setIsProfileModalOpen(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  borderRadius: 8,
+                  padding: '12px',
+                  marginBottom: 12,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Avatar
                     size={40}
@@ -300,44 +329,24 @@ export default function Sidebar() {
                     >
                       {user.email}
                     </Text>
-                    <Text
-                      style={{
-                        color: 'rgba(255,255,255,0.75)',
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                        display: 'block',
-                      }}
-                      ellipsis
-                    >
-                      {user.walletAddress.slice(0, 8)}...{user.walletAddress.slice(-6)}
-                    </Text>
+                    {user.did && (
+                      <Text
+                        style={{
+                          color: 'rgba(255,255,255,0.75)',
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          display: 'block',
+                        }}
+                        ellipsis
+                      >
+                        {user.did.slice(0, 20)}...
+                      </Text>
+                    )}
                   </div>
                 </div>
-
-                {/* DID Badge */}
-                {user.did && (
-                  <div style={{
-                    marginTop: 8,
-                    padding: '4px 8px',
-                    background: 'rgba(255,255,255,0.15)',
-                    borderRadius: 4,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}>
-                    <IdcardOutlined style={{ color: '#fff', fontSize: 11 }} />
-                    <Text
-                      style={{
-                        color: 'rgba(255,255,255,0.9)',
-                        fontSize: 9,
-                        fontFamily: 'monospace',
-                      }}
-                      ellipsis
-                    >
-                      {user.did}
-                    </Text>
-                  </div>
-                )}
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 8, display: 'block' }}>
+                  Click to view profile
+                </Text>
               </div>
 
               {/* Logout Button */}
@@ -350,6 +359,97 @@ export default function Sidebar() {
               >
                 Sign Out
               </Button>
+
+              {/* User Profile Modal */}
+              <Modal
+                title={
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Avatar size={48} icon={<UserOutlined />} style={{ backgroundColor: '#667eea' }} />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 16 }}>User Profile</div>
+                      <div style={{ fontWeight: 400, fontSize: 12, color: '#666' }}>Your account details</div>
+                    </div>
+                  </div>
+                }
+                open={isProfileModalOpen}
+                onCancel={() => setIsProfileModalOpen(false)}
+                footer={null}
+                width={500}
+              >
+                <Descriptions
+                  column={1}
+                  bordered
+                  size="small"
+                  style={{ marginTop: 24 }}
+                  labelStyle={{ fontWeight: 600, width: 140 }}
+                >
+                  <Descriptions.Item label="Email">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text>{user.email}</Text>
+                      <Tooltip title={copiedField === 'email' ? 'Copied!' : 'Copy'}>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={copiedField === 'email' ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
+                          onClick={() => handleCopyToClipboard(user.email, 'email')}
+                        />
+                      </Tooltip>
+                    </div>
+                  </Descriptions.Item>
+
+                  {user.did && (
+                    <Descriptions.Item label="DID">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text
+                          style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}
+                        >
+                          {user.did}
+                        </Text>
+                        <Tooltip title={copiedField === 'did' ? 'Copied!' : 'Copy DID'}>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={copiedField === 'did' ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
+                            onClick={() => handleCopyToClipboard(user.did!, 'did')}
+                          />
+                        </Tooltip>
+                      </div>
+                    </Descriptions.Item>
+                  )}
+
+                  <Descriptions.Item label="Wallet Address">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text
+                        style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}
+                      >
+                        {user.walletAddress}
+                      </Text>
+                      <Tooltip title={copiedField === 'wallet' ? 'Copied!' : 'Copy Address'}>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={copiedField === 'wallet' ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
+                          onClick={() => handleCopyToClipboard(user.walletAddress, 'wallet')}
+                        />
+                      </Tooltip>
+                    </div>
+                  </Descriptions.Item>
+                </Descriptions>
+
+                <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
+                  <Button
+                    type="primary"
+                    icon={<WalletOutlined />}
+                    onClick={() => {
+                      handleOpenWallet();
+                      setIsProfileModalOpen(false);
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    View Wallet on Explorer
+                  </Button>
+                </div>
+              </Modal>
             </div>
           ) : (
             <div style={{ textAlign: 'center' }}>

@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       user: {
         id: user.id,
+        did: user.did,
         email: user.email,
         walletAddress: user.walletAddress,
       },

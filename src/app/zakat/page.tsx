@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, Button, List, Typography, Spin, message, Modal, Result, Statistic, Row, Col, Tag } from 'antd';
-import { HeartOutlined, WalletOutlined, ReloadOutlined, CheckCircleOutlined, LinkOutlined } from '@ant-design/icons';
+import { HeartOutlined, WalletOutlined, ReloadOutlined, CheckCircleOutlined, LinkOutlined, CopyOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import AuthGuard from '@/app/component/AuthGuard';
@@ -41,6 +41,18 @@ export default function ZakatDonationPage() {
   const [donating, setDonating] = useState<string | null>(null);
   const [donationResult, setDonationResult] = useState<DonationResult | null>(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
+  const [copiedDid, setCopiedDid] = useState<string | null>(null);
+
+  const handleCopyDid = async (did: string) => {
+    try {
+      await navigator.clipboard.writeText(did);
+      setCopiedDid(did);
+      message.success('DID copied to clipboard!');
+      setTimeout(() => setCopiedDid(null), 2000);
+    } catch {
+      message.error('Failed to copy');
+    }
+  };
 
   const reserveBuffer = 15;
   const donateableBalance = Math.max(0, xrpBalance - reserveBuffer);
@@ -303,8 +315,18 @@ export default function ZakatDonationPage() {
                       <Paragraph style={{ marginBottom: 4 }}>{charity.description}</Paragraph>
                       {charity.did && (
                         <div style={{ marginBottom: 4 }}>
-                          <Tag color="purple" style={{ fontFamily: 'monospace', fontSize: 10 }}>
+                          <Tag
+                            color={copiedDid === charity.did ? 'green' : 'purple'}
+                            style={{
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                            onClick={() => handleCopyDid(charity.did!)}
+                          >
                             {charity.did}
+                            <CopyOutlined style={{ marginLeft: 6 }} />
                           </Tag>
                         </div>
                       )}

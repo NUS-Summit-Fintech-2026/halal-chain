@@ -115,7 +115,7 @@ async function configureIssuerSettings(client, issuerWallet, enableClawback = tr
 ```javascript
 async function tokenizeBond(options) {
   const { client, issuerWallet, bondName, totalTokens, treasuryWallet } = options;
-
+x
   // Create currency code (max 3 chars standard, or hex for longer names)
   let currencyCode;
   if (bondName.length <= 3) {
@@ -469,7 +469,35 @@ Since XRPL uses wallet addresses rather than smart contracts, here are the key s
 
 **View on XRPL Explorer:**
 - Accounts: `https://testnet.xrpl.org/accounts/{address}`
+EG: https://testnet.xrpl.org/accounts/rGFL5zDJRQE5T4d7s5uFatDEA3T3TQSEw1
+
 - Transactions: `https://testnet.xrpl.org/transactions/{txHash}`
+EG: https://testnet.xrpl.org/transactions/0D41CE823374114802EFBEFE25559E68BBB153B1670B9B2FBA2BDC5EC40E3334
+
+<img width="1144" height="612" alt="asset addresses" src="https://github.com/user-attachments/assets/3952a694-df80-4a5b-9116-3c9d53f1af74" />
+
+---
+
+##  Decentralized Identifier (DID) 
+
+A Decentralized Identifier (DID) is automatically generated when a buyer logs in to the platform for the first time. The DID serves as the user’s self-sovereign digital identity, independent of any centralized authority.
+
+The generated DID, together with the corresponding wallet address, can be viewed under the User Profile section. This provides transparency to the user and allows them to verify the identity that is being used for all on-chain interactions within the application.
+
+![6269493573522755272](https://github.com/user-attachments/assets/e76a1bba-f6f1-4f89-8a42-fd96611d3e85)
+
+
+Within the platform, the DID is planned to be used to:
+
+- Uniquely identify buyers across sessions and transactions
+
+- Associate bond purchases and token ownership with a verifiable identity
+
+- Enable traceability and auditability of transactions without relying on centralized user accounts
+
+- Lay the groundwork for future features such as credential verification, access control, and compliance checks
+
+---
 
 ---
 

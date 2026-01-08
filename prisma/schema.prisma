@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WalletRole {
+  ISSUER
+  TREASURY
+}
+
+model Wallet {
+  id        String     @id @default(cuid())
+  role      WalletRole @unique
+  address   String     @unique
+  seed      String
+  createdAt DateTime   @default(now())
+}
+
+enum BondStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Bond {
+  id              String     @id @default(cuid())
+  name            String
+  description     String
+  code            String     @unique
+  currencyCode    String?
+  totalTokens     Int
+  status          BondStatus @default(DRAFT)
+  profitRate      Float
+  fileUrl         String?
+  issuerAddress   String
+  treasuryAddress String
+  createdAt       DateTime   @default(now())
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  walletAddress String   @unique
+  walletSeed    String
+  createdAt     DateTime @default(now())
+}
+
+enum AssetStatus {
+  DRAFT
+  PUBLISHED
+  REALIZED
+}
+
+model RealAsset {
+  id                  String      @id @default(cuid())
+  name                String
+  description         String
+  code                String      @unique
+  currencyCode        String?
+  totalTokens         Int
+  status              AssetStatus @default(DRAFT)
+  profitRate          Float
+  currentValuationXrp Float?
+  issuerAddress       String
+  treasuryAddress     String
+  createdAt           DateTime    @default(now())
+  files               AssetFile[]
+}
+
+model AssetFile {
+  id        String    @id @default(cuid())
+  assetId   String
+  asset     RealAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  url       String
+  mimeType  String?
+  fileName  String?
+  size      Float?
+  createdAt DateTime  @default(now())
+
+  @@index([assetId])
+}

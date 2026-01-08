@@ -1,128 +1,155 @@
 'use client';
 
-import { Card, Button, Table, Modal, Form, Input, Select, Space, Tag, Popconfirm, message, Upload } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UploadOutlined, FileOutlined, RocketOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Tag, Popconfirm, message, Spin } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { UploadFile, UploadProps } from 'antd';
 
 interface Bond {
-  key: string;
+  id: string;
   name: string;
+  description: string;
   code: string;
-  status: 'draft' | 'active' | 'completed';
-  value: number;
-  maturityDate: string;
-  documents?: UploadFile[];
+  currencyCode: string | null;
+  totalTokens: number;
+  status: 'DRAFT' | 'PUBLISHED';
+  profitRate: number;
+  fileUrl: string | null;
+  issuerAddress: string;
+  treasuryAddress: string;
+  createdAt: string;
 }
 
 export default function BondsPage() {
   const router = useRouter();
-  const [bonds, setBonds] = useState<Bond[]>([
-    {
-      key: '1',
-      name: 'Government Sukuk 2026',
-      code: 'US092189AC02',
-      status: 'active',
-      value: 1000000,
-      maturityDate: '2026-12-31',
-      documents: [],
-    },
-  ]);
+  const [bonds, setBonds] = useState<Bond[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBond, setEditingBond] = useState<Bond | null>(null);
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
+
+  // Fetch bonds from API
+  const fetchBonds = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/bonds');
+      if (res.ok) {
+        const data = await res.json();
+        setBonds(data);
+      } else {
+        message.error('Failed to fetch bonds');
+      }
+    } catch (error) {
+      message.error('Failed to fetch bonds');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBonds();
+  }, []);
 
   const handleCreate = () => {
     setEditingBond(null);
-    setFileList([]);
     form.resetFields();
     setIsModalOpen(true);
   };
 
   const handleEdit = (bond: Bond) => {
     setEditingBond(bond);
-    setFileList(bond.documents || []);
-    form.setFieldsValue(bond);
+    form.setFieldsValue({
+      name: bond.name,
+      description: bond.description,
+      code: bond.code,
+      totalTokens: bond.totalTokens,
+      profitRate: bond.profitRate,
+    });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (key: string) => {
-    setBonds(bonds.filter(bond => bond.key !== key));
-    message.success('Bond deleted successfully');
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/bonds/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        message.success('Bond deleted successfully');
+        fetchBonds(); // Refresh list
+      } else {
+        const data = await res.json();
+        message.error(data.error || 'Failed to delete bond');
+      }
+    } catch (error) {
+      message.error('Failed to delete bond');
+    }
   };
 
   const handlePublish = (bond: Bond) => {
-    // Navigate to publish page with bond data
-    router.push(`/bonds/publish?bondId=${bond.key}`);
+    router.push(`/publish?bondCode=${bond.code}`);
   };
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      
+      setSubmitting(true);
+
       if (editingBond) {
-        // Update existing bond
-        setBonds(bonds.map(bond => 
-          bond.key === editingBond.key 
-            ? { ...bond, ...values, documents: fileList }
-            : bond
-        ));
-        message.success('Bond updated successfully');
+        // Update existing bond via API
+        const res = await fetch(`/api/bonds/${editingBond.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: values.name,
+            description: values.description,
+            totalTokens: values.totalTokens,
+            profitRate: values.profitRate,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          message.success('Bond updated successfully');
+          setIsModalOpen(false);
+          form.resetFields();
+          setEditingBond(null);
+          fetchBonds(); // Refresh list
+        } else {
+          message.error(data.error || 'Failed to update bond');
+        }
       } else {
-        // Create new bond
-        const newBond: Bond = {
-          key: Date.now().toString(),
-          ...values,
-          documents: fileList,
-        };
-        setBonds([...bonds, newBond]);
-        message.success('Bond created successfully');
+        // Create new bond via API
+        const res = await fetch('/api/bonds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: values.name,
+            description: values.description,
+            code: values.code,
+            totalTokens: values.totalTokens,
+            profitRate: values.profitRate,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          message.success('Bond created successfully');
+          setIsModalOpen(false);
+          form.resetFields();
+          fetchBonds(); // Refresh list
+        } else {
+          message.error(data.error || 'Failed to create bond');
+        }
       }
-      
-      setIsModalOpen(false);
-      setFileList([]);
-      form.resetFields();
     } catch (error) {
       console.error('Validation failed:', error);
+    } finally {
+      setSubmitting(false);
     }
-  };
-
-  const uploadProps: UploadProps = {
-    onRemove: (file) => {
-      const index = fileList.indexOf(file);
-      const newFileList = fileList.slice();
-      newFileList.splice(index, 1);
-      setFileList(newFileList);
-    },
-    beforeUpload: (file) => {
-      // Check file size (max 10MB)
-      const isLt10M = file.size / 1024 / 1024 < 10;
-      if (!isLt10M) {
-        message.error('File must be smaller than 10MB');
-        return false;
-      }
-
-      // Check file type
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'image/jpeg',
-        'image/png',
-      ];
-      
-      if (!allowedTypes.includes(file.type)) {
-        message.error('You can only upload PDF, DOC, DOCX, JPG, or PNG files');
-        return false;
-      }
-
-      setFileList([...fileList, file]);
-      return false; // Prevent auto upload
-    },
-    fileList,
-    multiple: true,
   };
 
   const columns = [
@@ -138,38 +165,33 @@ export default function BondsPage() {
       key: 'code',
     },
     {
-      title: 'Value (XRP)',
-      dataIndex: 'value',
-      key: 'value',
+      title: 'Total Tokens',
+      dataIndex: 'totalTokens',
+      key: 'totalTokens',
       render: (value: number) => value.toLocaleString(),
     },
     {
-      title: 'Maturity Date',
-      dataIndex: 'maturityDate',
-      key: 'maturityDate',
+      title: 'Profit Rate',
+      dataIndex: 'profitRate',
+      key: 'profitRate',
+      render: (value: number) => `${(value * 100).toFixed(1)}%`,
     },
     {
-      title: 'Documents',
-      dataIndex: 'documents',
-      key: 'documents',
-      render: (documents: UploadFile[]) => (
-        <Space>
-          <FileOutlined />
-          <span>{documents?.length || 0} file(s)</span>
-        </Space>
-      ),
+      title: 'Currency Code',
+      dataIndex: 'currencyCode',
+      key: 'currencyCode',
+      render: (value: string | null) => value || '-',
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
-        const colors = {
-          draft: 'default',
-          active: 'success',
-          completed: 'blue',
+        const colors: Record<string, string> = {
+          DRAFT: 'default',
+          PUBLISHED: 'success',
         };
-        return <Tag color={colors[status as keyof typeof colors]}>{status.toUpperCase()}</Tag>;
+        return <Tag color={colors[status] || 'default'}>{status}</Tag>;
       },
     },
     {
@@ -177,71 +199,37 @@ export default function BondsPage() {
       key: 'actions',
       render: (_: any, record: Bond) => (
         <Space>
-          {/* <Button 
-            type="link" 
-            icon={<EyeOutlined />}
-            onClick={() => {
-              Modal.info({
-                title: 'Bond Details',
-                width: 600,
-                content: (
-                  <div style={{ marginTop: 16 }}>
-                    <p><strong>Name:</strong> {record.name}</p>
-                    <p><strong>Code:</strong> {record.code}</p>
-                    <p><strong>Value:</strong> {record.value.toLocaleString()} XRP</p>
-                    <p><strong>Maturity Date:</strong> {record.maturityDate}</p>
-                    <p><strong>Status:</strong> {record.status.toUpperCase()}</p>
-                    {record.documents && record.documents.length > 0 && (
-                      <>
-                        <p><strong>Documents:</strong></p>
-                        <ul>
-                          {record.documents.map((file, index) => (
-                            <li key={index}>{file.name}</li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  </div>
-                ),
-              });
-            }}
-          >
-            View
-          </Button> */}
-          <Button 
-            type="link" 
+          <Button
+            type="link"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
+            disabled={record.status === 'PUBLISHED'}
           >
             Edit
           </Button>
-          
-        {record.status === 'active' && (
-          <Button
-            type="primary"
-            icon={<RocketOutlined style={{ color: '#fff' }} />}
-            onClick={() => handlePublish(record)}
-            style={{
-              backgroundColor: '#1677ff', // AntD primary blue
-              borderColor: '#1677ff',
-              color: '#fff',
-            }}
-          >
-            Publish
-          </Button>
-        )}
+
+          {record.status === 'DRAFT' && (
+            <Button
+              type="primary"
+              icon={<RocketOutlined />}
+              onClick={() => handlePublish(record)}
+            >
+              Publish
+            </Button>
+          )}
 
           <Popconfirm
             title="Delete bond"
             description="Are you sure you want to delete this bond?"
-            onConfirm={() => handleDelete(record.key)}
+            onConfirm={() => handleDelete(record.id)}
             okText="Yes"
             cancelText="No"
           >
-            <Button 
-              type="link" 
+            <Button
+              type="link"
               danger
               icon={<DeleteOutlined />}
+              disabled={record.status === 'PUBLISHED'}
             >
               Delete
             </Button>
@@ -253,28 +241,44 @@ export default function BondsPage() {
 
   return (
     <div style={{ marginLeft: 20, padding: '24px' }}>
-      <Card 
+      <Card
         title={
           <span style={{ fontSize: '20px', fontWeight: 600 }}>
             Bond Management
           </span>
         }
         extra={
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={handleCreate}
-          >
-            Create Bond
-          </Button>
+          <Space>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchBonds}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleCreate}
+            >
+              Create Bond
+            </Button>
+          </Space>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={bonds}
-          pagination={{ pageSize: 10 }}
-          style={{ marginTop: 16 }}
-        />
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 50 }}>
+            <Spin size="large" />
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={bonds}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            style={{ marginTop: 16 }}
+          />
+        )}
       </Card>
 
       <Modal
@@ -283,9 +287,9 @@ export default function BondsPage() {
         onOk={handleSubmit}
         onCancel={() => {
           setIsModalOpen(false);
-          setFileList([]);
           form.resetFields();
         }}
+        confirmLoading={submitting}
         width={700}
       >
         <Form
@@ -302,48 +306,56 @@ export default function BondsPage() {
           </Form.Item>
 
           <Form.Item
+            name="description"
+            label="Description"
+            rules={[{ required: true, message: 'Please enter description' }]}
+          >
+            <Input.TextArea
+              placeholder="Brief description of the bond"
+              rows={3}
+            />
+          </Form.Item>
+
+          <Form.Item
             name="code"
-            label="Code"
-            rules={[{ required: true, message: 'Please enter code' }]}
+            label="Bond Code"
+            rules={[{ required: true, message: 'Please enter bond code' }]}
+            extra="Unique identifier for the bond (will be used as currency code on XRPL)"
           >
-            <Input placeholder="e.g., US092189AC02" />
+            <Input
+              placeholder="e.g., SUKUK01"
+              disabled={!!editingBond}
+            />
           </Form.Item>
 
           <Form.Item
-            name="value"
-            label="Total Value (XRP)"
-            rules={[{ required: true, message: 'Please enter value' }]}
+            name="totalTokens"
+            label="Total Tokens"
+            rules={[{ required: true, message: 'Please enter total tokens' }]}
+            extra="Number of tokens to create for this bond"
           >
-            <Input type="number" placeholder="e.g., 1000000" />
+            <InputNumber
+              placeholder="e.g., 100000"
+              min={1}
+              style={{ width: '100%' }}
+              formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={value => value!.replace(/\$\s?|(,*)/g, '')}
+            />
           </Form.Item>
 
           <Form.Item
-            name="maturityDate"
-            label="Maturity Date"
-            rules={[{ required: true, message: 'Please select maturity date' }]}
+            name="profitRate"
+            label="Profit Rate"
+            rules={[{ required: true, message: 'Please enter profit rate' }]}
+            extra="Expected return rate (e.g., 0.05 for 5%)"
           >
-            <Input type="date" />
-          </Form.Item>
-
-          <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: 'Please select status' }]}
-          >
-            <Select placeholder="Select status">
-              <Select.Option value="draft">Draft</Select.Option>
-              <Select.Option value="active">Active</Select.Option>
-              <Select.Option value="completed">Completed</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Upload Documents"
-            extra="Support PDF, DOC, DOCX, JPG, PNG (Max 10MB per file)"
-          >
-            <Upload {...uploadProps}>
-              <Button icon={<UploadOutlined />}>Select Files</Button>
-            </Upload>
+            <InputNumber
+              placeholder="e.g., 0.05"
+              min={0}
+              max={1}
+              step={0.01}
+              style={{ width: '100%' }}
+            />
           </Form.Item>
         </Form>
       </Modal>

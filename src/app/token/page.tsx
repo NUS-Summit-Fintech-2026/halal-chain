@@ -54,7 +54,7 @@ export default function BondMarketplacePage() {
   ]);
 
   const handleViewBond = (bondId: string) => {
-    router.push(`/bonds/trade/${bondId}`);
+    router.push(`/trade/${bondId}`);
   };
 
   const columns = [

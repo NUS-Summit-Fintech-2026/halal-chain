@@ -1,9 +1,9 @@
 'use client';
 
-import { Card, Button, Space, Typography } from 'antd';
+import { Card, Button, Space, Typography, Spin } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import PriceChart from '@/app/component/pricechart';
 import OrderBook from '@/app/component/orderbook';
 import PurchaseSection from '@/app/component/purchase';
@@ -20,20 +20,70 @@ interface BondDetails {
   totalValue: number;
 }
 
-export default function BondTradePage({ params }: { params: { bondId: string } }) {
+export default function BondTradePage({ params }: { params: Promise<{ bondId: string }> }) {
+  const { bondId } = use(params);
   const router = useRouter();
   const [currentPrice, setCurrentPrice] = useState(100);
+  const [bond, setBond] = useState<BondDetails | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock bond data - in real app, fetch based on params.bondId
-  const bond: BondDetails = {
-    id: params.bondId,
-    name: 'Government Sukuk 2026',
-    code: 'US092189AC02',
-    issuer: 'Ministry of Finance',
-    maturityDate: 'December 31, 2026',
-    expectedReturn: '5% annually',
-    totalValue: 1000000,
-  };
+  useEffect(() => {
+    // Fetch bond data from API
+    async function fetchBond() {
+      try {
+        const res = await fetch(`/api/bonds/${bondId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBond({
+            id: data.id,
+            name: data.name,
+            code: data.code,
+            issuer: 'Issuer', // You can add issuer field to Bond model
+            maturityDate: data.maturityDate || 'TBD',
+            expectedReturn: `${(data.profitRate * 100).toFixed(1)}%`,
+            totalValue: data.totalTokens,
+          });
+        } else {
+          // Fallback to mock data if bond not found
+          setBond({
+            id: bondId,
+            name: 'Government Sukuk 2026',
+            code: 'US092189AC02',
+            issuer: 'Ministry of Finance',
+            maturityDate: 'December 31, 2026',
+            expectedReturn: '5% annually',
+            totalValue: 1000000,
+          });
+        }
+      } catch (error) {
+        // Fallback to mock data on error
+        setBond({
+          id: bondId,
+          name: 'Government Sukuk 2026',
+          code: 'US092189AC02',
+          issuer: 'Ministry of Finance',
+          maturityDate: 'December 31, 2026',
+          expectedReturn: '5% annually',
+          totalValue: 1000000,
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBond();
+  }, [bondId]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!bond) {
+    return <div>Bond not found</div>;
+  }
 
   return (
     <div style={{ marginLeft: 20, padding: '24px' }}>

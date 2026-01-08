@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       return errorResponse('name and description are required');
     }
 
-    // Create a new wallet for the charity (using createTreasury which creates a simple funded wallet)
-    const walletResult = await apiHelper.createTreasury();
+    // Create a new wallet for the charity with minimal XRP (20 XRP - just above 10 XRP base reserve)
+    const walletResult = await apiHelper.createTreasury(20);
     if (!walletResult.success) {
       return errorResponse('Failed to create wallet for charity');
     }

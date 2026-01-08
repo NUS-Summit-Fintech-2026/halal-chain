@@ -14,9 +14,12 @@ async function connect() {
 
 /**
  * Create and fund a new wallet on testnet
+ * @param {Client} client - XRPL client
+ * @param {string} amount - Optional amount of XRP to fund (default: faucet default ~1000 XRP)
  */
-async function createWallet(client) {
-  const { wallet, balance } = await client.fundWallet();
+async function createWallet(client, amount = null) {
+  const options = amount ? { amount: String(amount) } : undefined;
+  const { wallet, balance } = await client.fundWallet(null, options);
   return {
     address: wallet.address,
     seed: wallet.seed,

@@ -1,25 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { errorResponse } from '@/lib/api-utils';
+// =============================================================================
+// DEPRECATED: This API is no longer used.
+// Use /api/auth/signin and /api/auth/signup instead.
+// =============================================================================
 
-// POST /api/auth/login - Login or register user
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { email, walletAddress, walletSeed } = body;
+// import { NextRequest, NextResponse } from 'next/server';
+// import { prisma } from '@/lib/prisma';
+// import { errorResponse } from '@/lib/api-utils';
 
-    if (!email || !walletAddress || !walletSeed) {
-      return errorResponse('email, walletAddress, walletSeed are required');
-    }
+// // POST /api/auth/login - Login or register user
+// export async function POST(request: NextRequest) {
+//   try {
+//     const body = await request.json();
+//     const { email, walletAddress, walletSeed } = body;
 
-    const user = await (prisma as any).user.upsert({
-      where: { email },
-      update: { walletAddress, walletSeed },
-      create: { email, walletAddress, walletSeed },
-    });
+//     if (!email || !walletAddress || !walletSeed) {
+//       return errorResponse('email, walletAddress, walletSeed are required');
+//     }
 
-    return NextResponse.json({ ok: true, user });
-  } catch (e) {
-    return errorResponse(String(e));
-  }
-}
+//     const user = await (prisma as any).user.upsert({
+//       where: { email },
+//       update: { walletAddress, walletSeed },
+//       create: { email, walletAddress, walletSeed },
+//     });
+
+//     return NextResponse.json({ ok: true, user });
+//   } catch (e) {
+//     return errorResponse(String(e));
+//   }
+// }

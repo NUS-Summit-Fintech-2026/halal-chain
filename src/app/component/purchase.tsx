@@ -1,8 +1,9 @@
 'use client';
 
 import { Card, Button, InputNumber, Typography, Space, Statistic, Row, Col, Divider, message } from 'antd';
-import { ShoppingCartOutlined, LoadingOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, LoadingOutlined, LoginOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 const { Title, Text } = Typography;
 
@@ -22,10 +23,16 @@ interface PurchaseSectionProps {
 export default function PurchaseSection({ bond, currentPrice, availableTokens }: PurchaseSectionProps) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  const { user, getAuthHeader } = useAuth();
 
   const totalCost = quantity * currentPrice;
 
   const handlePurchase = async () => {
+    if (!user) {
+      message.error('Please sign in to purchase tokens');
+      return;
+    }
+
     if (quantity > availableTokens) {
       message.error('Quantity exceeds available tokens');
       return;
@@ -42,6 +49,7 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeader(),
         },
         body: JSON.stringify({
           tokenAmount: quantity,
@@ -160,16 +168,21 @@ export default function PurchaseSection({ bond, currentPrice, availableTokens }:
                 type="primary"
                 size="large"
                 block
-                icon={loading ? <LoadingOutlined /> : <ShoppingCartOutlined />}
+                icon={loading ? <LoadingOutlined /> : (user ? <ShoppingCartOutlined /> : <LoginOutlined />)}
                 onClick={handlePurchase}
-                disabled={quantity > availableTokens || availableTokens === 0 || loading}
+                disabled={!user || quantity > availableTokens || availableTokens === 0 || loading}
                 loading={loading}
               >
-                {loading ? 'Processing...' : 'Buy Now'}
+                {loading ? 'Processing...' : (user ? 'Buy Now' : 'Sign In to Buy')}
               </Button>
 
               {/* Error Messages */}
-              {quantity > availableTokens && availableTokens > 0 && (
+              {!user && (
+                <Text type="secondary" style={{ display: 'block', textAlign: 'center' }}>
+                  Please sign in to purchase tokens
+                </Text>
+              )}
+              {user && quantity > availableTokens && availableTokens > 0 && (
                 <Text type="danger" style={{ display: 'block', textAlign: 'center' }}>
                   Quantity exceeds available tokens
                 </Text>

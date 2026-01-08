@@ -34,6 +34,19 @@ export async function POST(
       return errorResponse('Bond missing currencyCode');
     }
 
+    // Ensure trust line exists before buying
+    const trustLineResult = await apiHelper.ensureTrustLine(
+      user.walletSeed,
+      bond.currencyCode,
+      bond.issuerAddress,
+      bond.totalTokens
+    );
+
+    if (!trustLineResult.success) {
+      return errorResponse(`Failed to set up trust line: ${trustLineResult.error}`);
+    }
+
+    // Now buy tokens
     const r = await apiHelper.buyTokens({
       buyerSeed: user.walletSeed,
       currencyCode: bond.currencyCode,
@@ -46,7 +59,10 @@ export async function POST(
       return NextResponse.json(r, { status: 400 });
     }
 
-    return NextResponse.json(r);
+    return NextResponse.json({
+      ...r,
+      trustLine: trustLineResult.data,
+    });
   } catch (e) {
     return errorResponse(String(e));
   }

@@ -75,6 +75,65 @@ async function createTreasury() {
 }
 
 /**
+ * Ensure trust line exists for a wallet (set up if not exists)
+ *
+ * @param {string} walletSeed - Wallet seed
+ * @param {string} currencyCode - Token currency code
+ * @param {string} issuerAddress - Token issuer address
+ * @param {number} trustLimit - Maximum tokens to hold
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+async function ensureTrustLine(walletSeed, currencyCode, issuerAddress, trustLimit = 1000000) {
+  let client;
+
+  try {
+    client = await xrplTool.connect();
+    const wallet = xrplTool.loadWallet(walletSeed);
+
+    // Check if trust line already exists
+    const trustLines = await xrplTool.getTrustLines(client, wallet.address);
+    const existingTrustLine = trustLines.find(
+      line => line.currency === currencyCode && line.account === issuerAddress
+    );
+
+    if (existingTrustLine) {
+      return {
+        success: true,
+        data: {
+          alreadyExists: true,
+          address: wallet.address,
+          currencyCode: currencyCode,
+          issuer: issuerAddress,
+          limit: existingTrustLine.limit,
+        },
+      };
+    }
+
+    // Set up new trust line
+    await xrplTool.setupTrustLine(client, wallet, currencyCode, issuerAddress, trustLimit);
+
+    return {
+      success: true,
+      data: {
+        alreadyExists: false,
+        address: wallet.address,
+        currencyCode: currencyCode,
+        issuer: issuerAddress,
+        limit: trustLimit,
+        createdAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (client) await client.disconnect();
+  }
+}
+
+/**
  * Create a Buyer wallet with trust line
  *
  * @param {string} currencyCode - The token currency code
@@ -817,6 +876,7 @@ function getTransactionUrl(txHash, network = 'testnet') {
 module.exports = {
   createIssuer,
   createTreasury,
+  ensureTrustLine,
   createBuyer,
   tokenizeBond,
   getWalletBalances,

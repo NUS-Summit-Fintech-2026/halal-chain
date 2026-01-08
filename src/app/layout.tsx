@@ -46,6 +46,7 @@ import "./globals.css";
 import AntdProvider from "./AntdProvider";
 import Sidebar from "./component/sidebar";
 import { Layout } from "antd";
+import { AuthProvider } from "@/context/AuthContext";
 
 const { Content } = Layout;
 
@@ -75,14 +76,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AntdProvider>
-          <Layout style={{ minHeight: '100vh' }}>
-            <Sidebar />
-            <Layout style={{ marginLeft: 220 }}>
-            
+          <AuthProvider>
+            <Layout style={{ minHeight: '100vh' }}>
+              <Sidebar />
+              <Layout style={{ marginLeft: 220 }}>
                 {children}
-              
+              </Layout>
             </Layout>
-          </Layout>
+          </AuthProvider>
         </AntdProvider>
       </body>
     </html>

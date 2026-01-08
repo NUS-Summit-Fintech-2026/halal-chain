@@ -56,9 +56,21 @@ export async function POST(
       return NextResponse.json(r, { status: 400 });
     }
 
+    // Update bond status to EXPIRED
+    const updated = await (prisma as any).bond.update({
+      where: { id: bond.id },
+      data: {
+        status: 'EXPIRED',
+      },
+    });
+
     return NextResponse.json({
       success: true,
-      bond: { code: bond.code, currencyCode: bond.currencyCode },
+      bond: {
+        code: updated.code,
+        currencyCode: updated.currencyCode,
+        status: updated.status,
+      },
       params: { principalPerTokenXrp, profitMultiplier, xrpPayoutPerToken },
       xrpl: r.data,
     });

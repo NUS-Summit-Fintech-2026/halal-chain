@@ -49,6 +49,9 @@ export async function PUT(
         description: body.description ?? existing.description,
         totalTokens: body.totalTokens ?? existing.totalTokens,
         profitRate: body.profitRate ?? existing.profitRate,
+        maturityAt: body.maturityAt !== undefined
+          ? (body.maturityAt ? new Date(body.maturityAt) : null)
+          : existing.maturityAt,
       },
     });
 

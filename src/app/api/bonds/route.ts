@@ -16,7 +16,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, code, totalTokens, profitRate } = body;
+    const { name, description, code, totalTokens, profitRate, maturityAt } = body;
 
     if (!name || !description || !code) {
       return errorResponse('name, description, code are required');
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
         code,
         totalTokens: Number(totalTokens),
         profitRate: Number(profitRate),
+        maturityAt: maturityAt ? new Date(maturityAt) : null,
         status: 'DRAFT',
         issuerAddress: issuer.address,
         treasuryAddress: treasury.address,

@@ -1,6 +1,7 @@
 'use client';
 
-import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Tag, Popconfirm, message, Spin } from 'antd';
+import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Tag, Popconfirm, message, Spin, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,8 +14,9 @@ interface Bond {
   code: string;
   currencyCode: string | null;
   totalTokens: number;
-  status: 'DRAFT' | 'PUBLISHED';
+  status: 'DRAFT' | 'PUBLISHED' | 'EXPIRED';
   profitRate: number;
+  maturityAt: string | null;
   fileUrl: string | null;
   issuerAddress: string;
   treasuryAddress: string;
@@ -26,9 +28,12 @@ export default function BondsPage() {
   const [bonds, setBonds] = useState<Bond[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExpirationModalOpen, setIsExpirationModalOpen] = useState(false);
+  const [selectedBond, setSelectedBond] = useState<Bond | null>(null);
   const [editingBond, setEditingBond] = useState<Bond | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
+  const [expirationForm] = Form.useForm();
 
   // Fetch bonds from API
   const fetchBonds = async () => {
@@ -66,6 +71,7 @@ export default function BondsPage() {
       code: bond.code,
       totalTokens: bond.totalTokens,
       profitRate: bond.profitRate,
+      maturityAt: bond.maturityAt ? dayjs(bond.maturityAt) : null,
     });
     setIsModalOpen(true);
   };
@@ -101,16 +107,31 @@ export default function BondsPage() {
     }
   };
 
-  const handleSimulateExpired = async (bond: Bond) => {
+  const handleOpenExpirationModal = (bond: Bond) => {
+    setSelectedBond(bond);
+    expirationForm.setFieldsValue({
+      principalPerTokenXrp: 1,
+    });
+    setIsExpirationModalOpen(true);
+  };
+
+  const handleSimulateExpired = async () => {
+    if (!selectedBond) return;
+
     try {
+      const values = await expirationForm.validateFields();
+      setSubmitting(true);
       message.loading({ content: 'Simulating bond expiry and redeeming all holders...', key: 'simulate' });
 
-      const res = await fetch(`/api/bonds/code/${bond.code}/simulate-expired`, {
+      const profitMultiplier = 1 + selectedBond.profitRate;
+      const xrpPayoutPerToken = values.principalPerTokenXrp * profitMultiplier;
+
+      const res = await fetch(`/api/bonds/code/${selectedBond.code}/simulate-expired`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          principalPerTokenXrp: 1,
-          profitMultiplier: 1 + bond.profitRate, // Use bond's profit rate
+          principalPerTokenXrp: values.principalPerTokenXrp,
+          profitMultiplier: profitMultiplier,
         }),
       });
 
@@ -118,16 +139,19 @@ export default function BondsPage() {
 
       if (res.ok && data.success) {
         message.success({
-          content: `Bond redeemed successfully! Payout: ${data.params.xrpPayoutPerToken} XRP per token`,
+          content: `Bond expired! Each token holder receives ${data.params.xrpPayoutPerToken.toFixed(6)} XRP per token`,
           key: 'simulate',
           duration: 5,
         });
+        setIsExpirationModalOpen(false);
         fetchBonds(); // Refresh list
       } else {
         message.error({ content: data.error || 'Failed to simulate expiry', key: 'simulate' });
       }
     } catch (error) {
       message.error({ content: 'Network error. Please try again.', key: 'simulate' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -146,6 +170,7 @@ export default function BondsPage() {
             description: values.description,
             totalTokens: values.totalTokens,
             profitRate: values.profitRate,
+            maturityAt: values.maturityAt ? values.maturityAt.toISOString() : null,
           }),
         });
 
@@ -171,6 +196,7 @@ export default function BondsPage() {
             code: values.code,
             totalTokens: values.totalTokens,
             profitRate: values.profitRate,
+            maturityAt: values.maturityAt ? values.maturityAt.toISOString() : null,
           }),
         });
 
@@ -217,6 +243,17 @@ export default function BondsPage() {
       render: (value: number) => `${(value * 100).toFixed(1)}%`,
     },
     {
+      title: 'Maturity Date',
+      dataIndex: 'maturityAt',
+      key: 'maturityAt',
+      render: (value: string | null) => value ? dayjs(value).format('YYYY-MM-DD') : '-',
+      sorter: (a: Bond, b: Bond) => {
+        if (!a.maturityAt) return 1;
+        if (!b.maturityAt) return -1;
+        return new Date(a.maturityAt).getTime() - new Date(b.maturityAt).getTime();
+      },
+    },
+    {
       title: 'Currency Code',
       dataIndex: 'currencyCode',
       key: 'currencyCode',
@@ -230,6 +267,7 @@ export default function BondsPage() {
         const colors: Record<string, string> = {
           DRAFT: 'default',
           PUBLISHED: 'success',
+          EXPIRED: 'blue',
         };
         return <Tag color={colors[status] || 'default'}>{status}</Tag>;
       },
@@ -285,21 +323,27 @@ export default function BondsPage() {
                 View Treasury
               </Button>
 
-              <Popconfirm
-                title="Simulate Bond Expiry"
-                description="This will simulate the bond reaching maturity. Are you sure?"
-                onConfirm={() => handleSimulateExpired(record)}
-                okText="Yes"
-                cancelText="No"
+              <Button
+                type="link"
+                icon={<ClockCircleOutlined />}
+                onClick={() => handleOpenExpirationModal(record)}
+                style={{ color: '#faad14' }}
               >
-                <Button
-                  type="link"
-                  icon={<ClockCircleOutlined />}
-                  style={{ color: '#faad14' }}
-                >
-                  Simulate Expired
-                </Button>
-              </Popconfirm>
+                Simulate Expired
+              </Button>
+            </>
+          )}
+
+          {record.status === 'EXPIRED' && (
+            <>
+              <Button
+                type="link"
+                icon={<EyeOutlined />}
+                onClick={() => handleViewTreasury(record)}
+              >
+                View Treasury
+              </Button>
+              <Tag color="blue">Expired</Tag>
             </>
           )}
         </Space>
@@ -426,7 +470,70 @@ export default function BondsPage() {
               style={{ width: '100%' }}
             />
           </Form.Item>
+
+          <Form.Item
+            name="maturityAt"
+            label="Maturity Date"
+            extra="The date when the bond matures and can be redeemed"
+          >
+            <DatePicker
+              style={{ width: '100%' }}
+              placeholder="Select maturity date"
+              format="YYYY-MM-DD"
+            />
+          </Form.Item>
         </Form>
+        </Modal>
+
+        <Modal
+          title="Simulate Bond Expiry"
+          open={isExpirationModalOpen}
+          onOk={handleSimulateExpired}
+          onCancel={() => {
+            setIsExpirationModalOpen(false);
+            expirationForm.resetFields();
+          }}
+          confirmLoading={submitting}
+          okText="Expire Bond & Redeem All"
+          okButtonProps={{ danger: true }}
+        >
+          <Form
+            form={expirationForm}
+            layout="vertical"
+            style={{ marginTop: 24 }}
+          >
+            {selectedBond && (
+              <div style={{ marginBottom: 16, padding: 16, background: '#f5f5f5', borderRadius: 8 }}>
+                <p><strong>Bond:</strong> {selectedBond.name}</p>
+                <p><strong>Code:</strong> {selectedBond.code}</p>
+                <p><strong>Currency Code:</strong> {selectedBond.currencyCode}</p>
+                <p><strong>Profit Rate:</strong> {(selectedBond.profitRate * 100).toFixed(1)}%</p>
+              </div>
+            )}
+
+            <Form.Item
+              name="principalPerTokenXrp"
+              label="Principal Per Token (XRP)"
+              rules={[{ required: true, message: 'Please enter principal per token' }]}
+              extra="The base XRP value per token before profit is applied"
+            >
+              <InputNumber
+                placeholder="e.g., 1"
+                min={0.000001}
+                step={0.1}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+
+            {selectedBond && (
+              <div style={{ marginTop: 16, padding: 16, background: '#e6f7ff', borderRadius: 8, border: '1px solid #91d5ff' }}>
+                <p style={{ margin: 0 }}>
+                  <strong>Payout Calculation:</strong><br />
+                  Each token holder will receive: Principal × (1 + {(selectedBond.profitRate * 100).toFixed(1)}%) = <strong>{(1 * (1 + selectedBond.profitRate)).toFixed(6)} XRP</strong> per token
+                </p>
+              </div>
+            )}
+          </Form>
         </Modal>
       </div>
     </AdminGuard>

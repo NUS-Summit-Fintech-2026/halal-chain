@@ -23,6 +23,7 @@ model Wallet {
 enum BondStatus {
   DRAFT
   PUBLISHED
+  EXPIRED
 }
 
 model Bond {
@@ -34,6 +35,7 @@ model Bond {
   totalTokens     Int
   status          BondStatus @default(DRAFT)
   profitRate      Float
+  maturityAt      DateTime?
   fileUrl         String?
   issuerAddress   String
   treasuryAddress String

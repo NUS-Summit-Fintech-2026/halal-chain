@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Tag, Popconfirm, message, Spin } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -89,6 +89,20 @@ export default function BondsPage() {
 
   const handlePublish = (bond: Bond) => {
     router.push(`/publish?bondCode=${bond.code}`);
+  };
+
+  const handleViewTreasury = (bond: Bond) => {
+    if (bond.treasuryAddress) {
+      const explorerUrl = `https://testnet.xrpl.org/accounts/${bond.treasuryAddress}`;
+      window.open(explorerUrl, '_blank');
+    } else {
+      message.error('Treasury address not available');
+    }
+  };
+
+  const handleSimulateExpired = async (bond: Bond) => {
+    // TODO: Implement simulate expired functionality
+    message.info('Simulate expired - Coming soon');
   };
 
   const handleSubmit = async () => {
@@ -199,41 +213,69 @@ export default function BondsPage() {
       key: 'actions',
       render: (_: any, record: Bond) => (
         <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-            disabled={record.status === 'PUBLISHED'}
-          >
-            Edit
-          </Button>
-
           {record.status === 'DRAFT' && (
-            <Button
-              type="primary"
-              icon={<RocketOutlined />}
-              onClick={() => handlePublish(record)}
-            >
-              Publish
-            </Button>
+            <>
+              <Button
+                type="link"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+              >
+                Edit
+              </Button>
+
+              <Button
+                type="primary"
+                icon={<RocketOutlined />}
+                onClick={() => handlePublish(record)}
+              >
+                Publish
+              </Button>
+
+              <Popconfirm
+                title="Delete bond"
+                description="Are you sure you want to delete this bond?"
+                onConfirm={() => handleDelete(record.id)}
+                okText="Yes"
+                cancelText="No"
+              >
+                <Button
+                  type="link"
+                  danger
+                  icon={<DeleteOutlined />}
+                >
+                  Delete
+                </Button>
+              </Popconfirm>
+            </>
           )}
 
-          <Popconfirm
-            title="Delete bond"
-            description="Are you sure you want to delete this bond?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button
-              type="link"
-              danger
-              icon={<DeleteOutlined />}
-              disabled={record.status === 'PUBLISHED'}
-            >
-              Delete
-            </Button>
-          </Popconfirm>
+          {record.status === 'PUBLISHED' && (
+            <>
+              <Button
+                type="link"
+                icon={<EyeOutlined />}
+                onClick={() => handleViewTreasury(record)}
+              >
+                View Treasury
+              </Button>
+
+              <Popconfirm
+                title="Simulate Bond Expiry"
+                description="This will simulate the bond reaching maturity. Are you sure?"
+                onConfirm={() => handleSimulateExpired(record)}
+                okText="Yes"
+                cancelText="No"
+              >
+                <Button
+                  type="link"
+                  icon={<ClockCircleOutlined />}
+                  style={{ color: '#faad14' }}
+                >
+                  Simulate Expired
+                </Button>
+              </Popconfirm>
+            </>
+          )}
         </Space>
       ),
     },

@@ -49,3 +49,46 @@ model User {
   walletSeed    String
   createdAt     DateTime @default(now())
 }
+
+enum AssetStatus {
+  DRAFT
+  PUBLISHED
+  REALIZED
+}
+
+model RealAsset {
+  id                 String      @id @default(cuid())
+  name               String
+  description        String
+  code               String      @unique
+
+  currencyCode       String?
+  totalTokens        Int
+  status             AssetStatus @default(DRAFT)
+  profitRate         Float
+
+  currentValuationXrp Float?
+
+  issuerAddress      String
+  treasuryAddress    String
+
+  createdAt          DateTime @default(now())
+
+  files              AssetFile[]
+}
+
+model AssetFile {
+  id        String    @id @default(cuid())
+  assetId   String
+  asset     RealAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  url       String
+  mimeType  String?
+  fileName  String?
+  size      Float?
+  createdAt DateTime  @default(now())
+
+  @@index([assetId])
+}
+
+

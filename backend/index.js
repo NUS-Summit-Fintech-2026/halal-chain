@@ -22,7 +22,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const BUCKET = process.env.SUPABASE_BUCKET || "Bonds";
+const BONDS_BUCKET = process.env.SUPABASE_BONDS_BUCKET || "Bonds";
+const ASSETS_BUCKET = process.env.SUPABASE_ASSETS_BUCKET || "Assets";
 
 function getBearerToken(req) {
   const h = req.headers.authorization;
@@ -392,7 +393,7 @@ app.post("/bonds/code/:code/upload", upload.single("file"), async (req, res) => 
     const objectPath = `bonds/${bond.code}/${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
 
     const { error: upErr } = await supabase.storage
-      .from(BUCKET)
+      .from(BONDS_BUCKET)
       .upload(objectPath, req.file.buffer, {
         contentType: req.file.mimetype,
         upsert: true,
@@ -400,8 +401,7 @@ app.post("/bonds/code/:code/upload", upload.single("file"), async (req, res) => 
 
     if (upErr) return res.status(400).json({ success: false, error: upErr.message });
 
-    // Public URL (bucket must be public)
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
+    const { data } = supabase.storage.from(BONDS_BUCKET).getPublicUrl(objectPath);
     const fileUrl = data.publicUrl;
 
     const updated = await prisma.bond.update({
@@ -425,6 +425,286 @@ app.post("/bonds/code/:code/upload", upload.single("file"), async (req, res) => 
   }
 });
 
+app.post("/assets", async (req, res) => {
+  try {
+    const { name, description, code, totalTokens, profitRate } = req.body;
+
+    if (!name || !description || !code) {
+      return res.status(400).json({ success: false, error: "name, description, code are required" });
+    }
+    if (totalTokens == null || Number(totalTokens) <= 0) {
+      return res.status(400).json({ success: false, error: "totalTokens must be > 0" });
+    }
+    if (profitRate == null || Number.isNaN(Number(profitRate))) {
+      return res.status(400).json({ success: false, error: "profitRate is required (number)" });
+    }
+
+    const issuer = await ensureIssuerWallet();
+    const treasury = await ensureTreasuryWallet();
+
+    const asset = await prisma.realAsset.create({
+      data: {
+        name,
+        description,
+        code,
+        totalTokens: Number(totalTokens),
+        profitRate: Number(profitRate),
+        status: "DRAFT",
+        issuerAddress: issuer.address,
+        treasuryAddress: treasury.address,
+        currencyCode: null,
+      },
+    });
+
+    return res.json({ success: true, asset });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: String(e) });
+  }
+});
+
+app.get("/assets", async (_req, res) => {
+  const assets = await prisma.realAsset.findMany({ orderBy: { createdAt: "desc" } });
+  res.json({ success: true, assets });
+});
+
+app.get("/assets/:id", async (req, res) => {
+  const asset = await prisma.realAsset.findUnique({
+    where: { id: req.params.id },
+    include: { files: true },
+  });
+  if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+  res.json({ success: true, asset });
+});
+
+app.get("/assets/code/:code", async (req, res) => {
+  const asset = await prisma.realAsset.findUnique({
+    where: { code: req.params.code },
+    include: { files: true },
+  });
+  if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+  res.json({ success: true, asset });
+});
+
+app.post("/assets/code/:code/publish", async (req, res) => {
+  try {
+    const asset = await prisma.realAsset.findUnique({ where: { code: req.params.code } });
+    if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+
+    if (asset.status === "PUBLISHED") {
+      return res.json({ success: true, asset, note: "Already published" });
+    }
+
+    const { pricePerToken } = req.body;
+    if (pricePerToken == null || Number(pricePerToken) <= 0) {
+      return res.status(400).json({ success: false, error: "pricePerToken (in XRP) is required" });
+    }
+
+    const issuer = await prisma.wallet.findUnique({ where: { role: "ISSUER" } });
+    const treasury = await prisma.wallet.findUnique({ where: { role: "TREASURY" } });
+    if (!issuer || !treasury) {
+      return res.status(500).json({ success: false, error: "ISSUER/TREASURY wallet not found. Create an asset first." });
+    }
+
+    const tok = await apiHelper.tokenizeBond({
+      bondCode: asset.code,
+      totalTokens: asset.totalTokens,
+      issuerSeed: issuer.seed,
+      treasurySeed: treasury.seed,
+    });
+    if (!tok?.success) return res.status(400).json(tok);
+
+    const updated = await prisma.realAsset.update({
+      where: { id: asset.id },
+      data: {
+        currencyCode: tok.data.currencyCode,
+        status: "PUBLISHED",
+      },
+    });
+
+    const sell = await apiHelper.sellTokens({
+      sellerSeed: treasury.seed,
+      currencyCode: updated.currencyCode,
+      issuerAddress: updated.issuerAddress,
+      tokenAmount: updated.totalTokens,
+      pricePerToken: Number(pricePerToken),
+    });
+
+    if (!sell?.success) {
+      return res.status(400).json({
+        success: false,
+        error: "Tokenized and published, but failed to place initial treasury sell offer",
+        asset: updated,
+        tokenize: tok.data,
+        sellError: sell,
+      });
+    }
+
+    return res.json({
+      success: true,
+      asset: updated,
+      tokenize: tok.data,
+      initialSellOffer: sell.data,
+    });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: String(e) });
+  }
+});
+
+app.get("/xrpl/orderbook/asset/:assetCode", async (req, res) => {
+  try {
+    const asset = await prisma.realAsset.findUnique({ where: { code: req.params.assetCode } });
+    if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+    if (!asset.currencyCode) return res.status(400).json({ success: false, error: "Asset not tokenized. Publish first." });
+
+    const r = await apiHelper.getOrderBook(asset.currencyCode, asset.issuerAddress);
+    if (!r.success) return res.status(400).json(r);
+
+    return res.json(r);
+  } catch (e) {
+    return res.status(400).json({ success: false, error: String(e) });
+  }
+});
+
+app.post("/xrpl/buy/asset/:assetCode", requireUser, async (req, res) => {
+  try {
+    const { tokenAmount, pricePerToken } = req.body;
+    if (tokenAmount == null || pricePerToken == null) {
+      return res.status(400).json({ success: false, error: "tokenAmount and pricePerToken are required" });
+    }
+
+    const asset = await prisma.realAsset.findUnique({ where: { code: req.params.assetCode } });
+    if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+    if (asset.status !== "PUBLISHED") return res.status(400).json({ success: false, error: "Asset not published" });
+    if (!asset.currencyCode) return res.status(400).json({ success: false, error: "Asset missing currencyCode" });
+
+    const r = await apiHelper.buyTokens({
+      buyerSeed: req.user.walletSeed,
+      currencyCode: asset.currencyCode,
+      issuerAddress: asset.issuerAddress,
+      tokenAmount: Number(tokenAmount),
+      pricePerToken: Number(pricePerToken),
+    });
+
+    if (!r.success) return res.status(400).json(r);
+    return res.json(r);
+  } catch (e) {
+    return res.status(400).json({ success: false, error: String(e) });
+  }
+});
+
+app.post("/xrpl/sell/asset/:assetCode", requireUser, async (req, res) => {
+  try {
+    const { tokenAmount, pricePerToken } = req.body;
+    if (tokenAmount == null || pricePerToken == null) {
+      return res.status(400).json({ success: false, error: "tokenAmount and pricePerToken are required" });
+    }
+
+    const asset = await prisma.realAsset.findUnique({ where: { code: req.params.assetCode } });
+    if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+    if (asset.status !== "PUBLISHED") return res.status(400).json({ success: false, error: "Asset not published" });
+    if (!asset.currencyCode) return res.status(400).json({ success: false, error: "Asset missing currencyCode" });
+
+    const r = await apiHelper.sellTokens({
+      sellerSeed: req.user.walletSeed,
+      currencyCode: asset.currencyCode,
+      issuerAddress: asset.issuerAddress,
+      tokenAmount: Number(tokenAmount),
+      pricePerToken: Number(pricePerToken),
+    });
+
+    if (!r.success) return res.status(400).json(r);
+    return res.json(r);
+  } catch (e) {
+    return res.status(400).json({ success: false, error: String(e) });
+  }
+});
+
+app.post("/assets/code/:code/simulate-realized", async (req, res) => {
+  try {
+    const asset = await prisma.realAsset.findUnique({ where: { code: req.params.code } });
+    if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+    if (asset.status !== "PUBLISHED") return res.status(400).json({ success: false, error: "Asset not published" });
+    if (!asset.currencyCode) return res.status(400).json({ success: false, error: "Asset has no currencyCode. Publish first." });
+
+    const issuer = await prisma.wallet.findUnique({ where: { role: "ISSUER" } });
+    const treasury = await prisma.wallet.findUnique({ where: { role: "TREASURY" } });
+    if (!issuer || !treasury) return res.status(500).json({ success: false, error: "ISSUER/TREASURY wallet missing" });
+
+    const principalPerTokenXrp = Number(req.body?.principalPerTokenXrp ?? 1);
+
+    const profitRate = (req.body?.profitRate != null) ? Number(req.body.profitRate) : Number(asset.profitRate);
+
+    const xrpPayoutPerToken = principalPerTokenXrp * (1 + profitRate);
+
+    const users = await prisma.user.findMany({ select: { walletAddress: true, walletSeed: true } });
+    const holderSeeds = Object.fromEntries(users.map(u => [u.walletAddress, u.walletSeed]));
+
+    const r = await apiHelper.redeemBondForAllHolders({
+      issuerSeed: issuer.seed,
+      treasurySeed: treasury.seed,
+      currencyCode: asset.currencyCode,
+      xrpPayoutPerToken,
+      holderSeeds,
+    });
+
+    if (!r?.success) return res.status(400).json(r);
+
+    return res.json({
+      success: true,
+      asset: { code: asset.code, currencyCode: asset.currencyCode },
+      params: { principalPerTokenXrp, profitRate, xrpPayoutPerToken },
+      xrpl: r.data,
+    });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: String(e) });
+  }
+});
+
+app.post("/assets/code/:code/upload", upload.single("file"), async (req, res) => {
+  try {
+    const asset = await prisma.realAsset.findUnique({ where: { code: req.params.code } });
+    if (!asset) return res.status(404).json({ success: false, error: "Asset not found" });
+    if (!req.file) return res.status(400).json({ success: false, error: "file is required" });
+
+    const allowed = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+    if (!allowed.includes(req.file.mimetype)) {
+      return res.status(400).json({ success: false, error: "Only pdf/png/jpg/webp allowed" });
+    }
+
+    const ext = (req.file.originalname.split(".").pop() || "bin").toLowerCase();
+    const objectPath = `assets/${asset.code}/${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from(ASSETS_BUCKET)
+      .upload(objectPath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (upErr) return res.status(400).json({ success: false, error: upErr.message });
+
+    const { data } = supabase.storage.from(ASSETS_BUCKET).getPublicUrl(objectPath);
+    const fileUrl = data.publicUrl;
+
+    const fileRow = await prisma.assetFile.create({
+      data: {
+        assetId: asset.id,
+        url: fileUrl,
+        mimeType: req.file.mimetype,
+        fileName: req.file.originalname,
+        size: req.file.size,
+      },
+    });
+
+    return res.json({
+      success: true,
+      asset: { id: asset.id, code: asset.code },
+      file: fileRow,
+    });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: String(e) });
+  }
+});
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));

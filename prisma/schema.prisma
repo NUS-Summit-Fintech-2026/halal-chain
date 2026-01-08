@@ -82,3 +82,28 @@ model AssetFile {
 
   @@index([assetId])
 }
+
+model Charity {
+  id            String     @id @default(cuid())
+  name          String
+  description   String
+  walletAddress String     @unique
+  walletSeed    String
+  totalReceived Float      @default(0)
+  createdAt     DateTime   @default(now())
+  donations     Donation[]
+}
+
+model Donation {
+  id            String   @id @default(cuid())
+  charityId     String
+  charity       Charity  @relation(fields: [charityId], references: [id], onDelete: Cascade)
+  donorAddress  String
+  donorEmail    String?
+  xrpAmount     Float
+  txHash        String
+  createdAt     DateTime @default(now())
+
+  @@index([charityId])
+  @@index([donorAddress])
+}

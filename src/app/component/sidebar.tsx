@@ -10,6 +10,8 @@ import {
   WalletOutlined,
   GoldOutlined,
   ShopOutlined,
+  HeartOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -124,6 +126,16 @@ export default function Sidebar() {
               key: '/asset-marketplace',
               icon: <ShopOutlined />,
               label: 'Asset Marketplace',
+            },
+            {
+              key: '/charity-management',
+              icon: <TeamOutlined />,
+              label: 'Manage Charities',
+            },
+            {
+              key: '/zakat',
+              icon: <HeartOutlined />,
+              label: 'Zakat Donation',
             },
             ...(user ? [{
               key: 'wallet',

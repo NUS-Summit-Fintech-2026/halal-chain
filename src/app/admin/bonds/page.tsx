@@ -2,7 +2,7 @@
 
 import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Tag, Popconfirm, message, Spin, DatePicker } from 'antd';
 import dayjs from 'dayjs';
-import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, ClockCircleOutlined, BankOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminGuard from '@/app/component/AdminGuard';
@@ -104,6 +104,15 @@ export default function BondsPage() {
       window.open(explorerUrl, '_blank');
     } else {
       message.error('Treasury address not available');
+    }
+  };
+
+  const handleViewIssuer = (bond: Bond) => {
+    if (bond.issuerAddress) {
+      const explorerUrl = `https://testnet.xrpl.org/accounts/${bond.issuerAddress}`;
+      window.open(explorerUrl, '_blank');
+    } else {
+      message.error('Issuer address not available');
     }
   };
 
@@ -317,6 +326,14 @@ export default function BondsPage() {
             <>
               <Button
                 type="link"
+                icon={<BankOutlined />}
+                onClick={() => handleViewIssuer(record)}
+              >
+                View Issuer
+              </Button>
+
+              <Button
+                type="link"
                 icon={<EyeOutlined />}
                 onClick={() => handleViewTreasury(record)}
               >
@@ -336,6 +353,14 @@ export default function BondsPage() {
 
           {record.status === 'EXPIRED' && (
             <>
+              <Button
+                type="link"
+                icon={<BankOutlined />}
+                onClick={() => handleViewIssuer(record)}
+              >
+                View Issuer
+              </Button>
+
               <Button
                 type="link"
                 icon={<EyeOutlined />}

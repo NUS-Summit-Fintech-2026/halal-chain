@@ -11,15 +11,14 @@ const xrplTool = require('./xrpl.js');
  * Create an Issuer wallet
  *
  * @param {boolean} enableClawback - Enable clawback feature
- * @param {number} amount - Amount of XRP to fund (default: 10000)
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
-async function createIssuer(enableClawback = true, amount = 10000) {
+async function createIssuer(enableClawback = true) {
   let client;
 
   try {
     client = await xrplTool.connect();
-    const wallet = await xrplTool.createWallet(client, amount);
+    const wallet = await xrplTool.createWallet(client);
     const settings = await xrplTool.configureIssuerSettings(client, wallet.wallet, enableClawback);
 
     return {
@@ -47,15 +46,14 @@ async function createIssuer(enableClawback = true, amount = 10000) {
 /**
  * Create a Treasury wallet
  *
- * @param {number} amount - Amount of XRP to fund (default: 1000)
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
-async function createTreasury(amount = 1000) {
+async function createTreasury() {
   let client;
 
   try {
     client = await xrplTool.connect();
-    const wallet = await xrplTool.createWallet(client, amount);
+    const wallet = await xrplTool.createWallet(client);
 
     return {
       success: true,
@@ -142,15 +140,14 @@ async function ensureTrustLine(walletSeed, currencyCode, issuerAddress, trustLim
  * @param {string} currencyCode - The token currency code
  * @param {string} issuerAddress - The issuer's address
  * @param {number} trustLimit - Maximum tokens buyer can hold
- * @param {number} amount - Amount of XRP to fund (default: 1000)
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
-async function createBuyer(currencyCode, issuerAddress, trustLimit = 1000000, amount = 1000) {
+async function createBuyer(currencyCode, issuerAddress, trustLimit = 1000000) {
   let client;
 
   try {
     client = await xrplTool.connect();
-    const wallet = await xrplTool.createWallet(client, amount);
+    const wallet = await xrplTool.createWallet(client);
     await xrplTool.setupTrustLine(client, wallet.wallet, currencyCode, issuerAddress, trustLimit);
 
     return {

@@ -3,10 +3,12 @@
 import { Card, Row, Col, Statistic, Select, Space } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, LineChartOutlined } from '@ant-design/icons';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface PriceChartProps {
   bondId: string;
+  basePrice?: number;
+  profitRate?: number;
   onPriceUpdate?: (price: number) => void;
 }
 
@@ -15,29 +17,41 @@ interface PriceData {
   price: number;
 }
 
-export default function PriceChart({ bondId, onPriceUpdate }: PriceChartProps) {
+export default function PriceChart({ bondId, basePrice = 1, profitRate = 0.05, onPriceUpdate }: PriceChartProps) {
   const [timeRange, setTimeRange] = useState('7d');
   const [priceData, setPriceData] = useState<PriceData[]>([]);
+  const generatedRef = useRef<Record<string, PriceData[]>>({});
 
-  // Generate price data based on time range
-  const generatePriceData = (days: number): PriceData[] => {
+  // Generate price data based on time range and profitRate
+  const generatePriceData = (days: number, base: number, rate: number): PriceData[] => {
+    const cacheKey = `${bondId}-${days}-${base}-${rate}`;
+    if (generatedRef.current[cacheKey]) {
+      return generatedRef.current[cacheKey];
+    }
+
     const data: PriceData[] = [];
-    const basePrice = 100;
-    let currentPrice = basePrice;
-    
+    let currentPrice = base;
+
+    // Use profitRate to determine fluctuation range (e.g., 5% rate = ±5% fluctuation)
+    const fluctuationRange = base * rate;
+    const minPrice = base * (1 - rate);
+    const maxPrice = base * (1 + rate);
+
     for (let i = days; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      
-      // Random price fluctuation between -2 and +2
-      const change = (Math.random() - 0.5) * 4;
-      currentPrice = Math.max(95, Math.min(105, currentPrice + change));
-      
+
+      // Random price fluctuation within ± profitRate range
+      const change = (Math.random() - 0.5) * fluctuationRange * 0.4;
+      currentPrice = Math.max(minPrice, Math.min(maxPrice, currentPrice + change));
+
       data.push({
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        price: parseFloat(currentPrice.toFixed(2)),
+        price: parseFloat(currentPrice.toFixed(6)),
       });
     }
+
+    generatedRef.current[cacheKey] = data;
     return data;
   };
 
@@ -47,15 +61,15 @@ export default function PriceChart({ bondId, onPriceUpdate }: PriceChartProps) {
       '30d': 30,
       '90d': 90,
     };
-    
-    const data = generatePriceData(timeRanges[timeRange]);
+
+    const data = generatePriceData(timeRanges[timeRange], basePrice, profitRate);
     setPriceData(data);
-    
+
     // Update current price to parent
     if (onPriceUpdate && data.length > 0) {
       onPriceUpdate(data[data.length - 1].price);
     }
-  }, [timeRange, bondId, onPriceUpdate]);
+  }, [timeRange, bondId, basePrice, profitRate]);
 
   if (priceData.length === 0) return null;
 
@@ -100,9 +114,9 @@ export default function PriceChart({ bondId, onPriceUpdate }: PriceChartProps) {
             <Statistic
               title="Current Price"
               value={currentPrice}
-              precision={2}
-              suffix="RLUSD"
-              valueStyle={{ color: '#1890ff', fontSize: '28px' }}
+              precision={6}
+              suffix="XRP"
+              valueStyle={{ color: '#1890ff', fontSize: '24px' }}
             />
             <Space style={{ marginTop: 8 }}>
               {isPositive ? (
@@ -121,8 +135,8 @@ export default function PriceChart({ bondId, onPriceUpdate }: PriceChartProps) {
             <Statistic
               title="Period High"
               value={highPrice}
-              precision={2}
-              suffix="RLUSD"
+              precision={6}
+              suffix="XRP"
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -132,8 +146,8 @@ export default function PriceChart({ bondId, onPriceUpdate }: PriceChartProps) {
             <Statistic
               title="Period Low"
               value={lowPrice}
-              precision={2}
-              suffix="RLUSD"
+              precision={6}
+              suffix="XRP"
               valueStyle={{ color: '#ff4d4f' }}
             />
           </Card>
@@ -143,8 +157,8 @@ export default function PriceChart({ bondId, onPriceUpdate }: PriceChartProps) {
             <Statistic
               title="Average Price"
               value={avgPrice}
-              precision={2}
-              suffix="RLUSD"
+              precision={6}
+              suffix="XRP"
             />
           </Card>
         </Col>
@@ -169,22 +183,23 @@ export default function PriceChart({ bondId, onPriceUpdate }: PriceChartProps) {
               tick={{ fontSize: 12 }}
               stroke="#999"
             />
-            <YAxis 
-              domain={['dataMin - 1', 'dataMax + 1']}
+            <YAxis
+              domain={['dataMin * 0.99', 'dataMax * 1.01']}
               tick={{ fontSize: 12 }}
               stroke="#999"
-              label={{ value: 'Price (RLUSD)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+              tickFormatter={(value) => value.toFixed(4)}
+              label={{ value: 'Price (XRP)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
             />
-            <Tooltip 
-              contentStyle={{ 
-                background: '#fff', 
+            <Tooltip
+              contentStyle={{
+                background: '#fff',
                 border: '1px solid #d9d9d9',
                 borderRadius: '4px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
               }}
               formatter={(value: number | undefined) => {
                 if (value === undefined) return ['', ''];
-                return [`${value.toFixed(2)} RLUSD`, 'Price'];
+                return [`${value.toFixed(6)} XRP`, 'Price'];
               }}
             />
             <Area 

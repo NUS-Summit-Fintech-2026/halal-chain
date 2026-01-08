@@ -2,7 +2,7 @@
 
 import { Card, Button, InputNumber, Typography, Space, Statistic, Row, Col, Divider, message, Radio } from 'antd';
 import { ShoppingCartOutlined, WalletOutlined, DollarOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const { Title, Text } = Typography;
 
@@ -16,14 +16,19 @@ interface PurchaseSectionProps {
     expectedReturn: string;
   };
   currentPrice: number;
+  availableTokens: number;
 }
 
-export default function PurchaseSection({ bond, currentPrice }: PurchaseSectionProps) {
+export default function PurchaseSection({ bond, currentPrice, availableTokens }: PurchaseSectionProps) {
   const [quantity, setQuantity] = useState(1);
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [limitPrice, setLimitPrice] = useState(currentPrice);
-  
-  const availableTokens = 8500;
+
+  // Update limit price when current price changes
+  useEffect(() => {
+    setLimitPrice(currentPrice);
+  }, [currentPrice]);
+
   const userBalance = 50000;
   const pricePerToken = orderType === 'market' ? currentPrice : limitPrice;
   const totalCost = quantity * pricePerToken;
@@ -41,7 +46,7 @@ export default function PurchaseSection({ bond, currentPrice }: PurchaseSectionP
 
     const orderTypeText = orderType === 'market' ? 'Market' : 'Limit';
     message.success(
-      `${orderTypeText} order placed: ${quantity} tokens at ${pricePerToken.toFixed(2)} RLUSD (Total: ${totalCost.toFixed(2)} RLUSD)`
+      `${orderTypeText} order placed: ${quantity} tokens at ${pricePerToken.toFixed(6)} XRP (Total: ${totalCost.toFixed(6)} XRP)`
     );
     setQuantity(1);
   };
@@ -74,17 +79,17 @@ export default function PurchaseSection({ bond, currentPrice }: PurchaseSectionP
 
               <Row gutter={16}>
                 <Col span={12}>
-                  <Statistic 
-                    title="Current Price" 
-                    value={currentPrice} 
-                    precision={2}
-                    suffix="RLUSD"
+                  <Statistic
+                    title="Current Price"
+                    value={currentPrice}
+                    precision={6}
+                    suffix="XRP"
                     valueStyle={{ color: '#1890ff' }}
                   />
                 </Col>
                 <Col span={12}>
-                  <Statistic 
-                    title="Available" 
+                  <Statistic
+                    title="Available"
                     value={availableTokens}
                     suffix="tokens"
                   />
@@ -127,15 +132,16 @@ export default function PurchaseSection({ bond, currentPrice }: PurchaseSectionP
               {orderType === 'limit' && (
                 <div>
                   <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                    Limit Price (RLUSD)
+                    Limit Price (XRP)
                   </Text>
-                  <InputNumber 
-                    min={0.01} 
+                  <InputNumber
+                    min={0.000001}
                     value={limitPrice}
                     onChange={(val) => setLimitPrice(val || currentPrice)}
                     style={{ width: '100%' }}
                     size="large"
-                    precision={2}
+                    precision={6}
+                    step={0.000001}
                     prefix={<DollarOutlined />}
                   />
                 </div>
@@ -161,19 +167,19 @@ export default function PurchaseSection({ bond, currentPrice }: PurchaseSectionP
               {/* Cost Summary */}
               <Row gutter={16}>
                 <Col span={12}>
-                  <Statistic 
-                    title="Total Cost" 
+                  <Statistic
+                    title="Total Cost"
                     value={totalCost}
-                    precision={2}
-                    suffix="RLUSD"
+                    precision={6}
+                    suffix="XRP"
                     valueStyle={{ color: '#1890ff' }}
                   />
                 </Col>
                 <Col span={12}>
-                  <Statistic 
-                    title="Your Balance" 
+                  <Statistic
+                    title="Your Balance"
                     value={userBalance}
-                    suffix="RLUSD"
+                    suffix="XRP"
                     prefix={<WalletOutlined />}
                   />
                 </Col>

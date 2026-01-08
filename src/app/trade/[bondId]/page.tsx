@@ -17,15 +17,54 @@ interface BondDetails {
   issuer: string;
   maturityDate: string;
   expectedReturn: string;
+  profitRate: number;
   totalValue: number;
+}
+
+interface SellOrder {
+  price: number;
+  quantity: number;
 }
 
 export default function BondTradePage({ params }: { params: Promise<{ bondId: string }> }) {
   const { bondId } = use(params);
   const router = useRouter();
-  const [currentPrice, setCurrentPrice] = useState(100);
+  const [currentPrice, setCurrentPrice] = useState(1);
   const [bond, setBond] = useState<BondDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sellOrders, setSellOrders] = useState<SellOrder[]>([]);
+  const [availableTokens, setAvailableTokens] = useState(0);
+  const [lowestSellPrice, setLowestSellPrice] = useState(1);
+
+  // Fetch orderbook data
+  const fetchOrderBook = async (bondCode: string) => {
+    try {
+      const res = await fetch(`/api/xrpl/orderbook/${bondCode}`);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const sells: SellOrder[] = data.data.sells.map((order: any) => ({
+          price: order.pricePerToken,
+          quantity: order.tokenAmount,
+        }));
+
+        setSellOrders(sells);
+
+        // Calculate available tokens (sum of all sell orders)
+        const totalAvailable = sells.reduce((sum: number, order: SellOrder) => sum + order.quantity, 0);
+        setAvailableTokens(totalAvailable);
+
+        // Get lowest sell price
+        if (sells.length > 0) {
+          const lowest = Math.min(...sells.map((o: SellOrder) => o.price));
+          setLowestSellPrice(lowest);
+          setCurrentPrice(lowest);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch orderbook:', error);
+    }
+  };
 
   useEffect(() => {
     // Fetch bond data from API
@@ -34,36 +73,43 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
         const res = await fetch(`/api/bonds/${bondId}`);
         if (res.ok) {
           const data = await res.json();
+          const profitRate = data.profitRate;
           setBond({
             id: data.id,
             name: data.name,
             code: data.code,
-            issuer: 'Issuer', // You can add issuer field to Bond model
+            issuer: 'Issuer',
             maturityDate: data.maturityDate || 'TBD',
-            expectedReturn: `${(data.profitRate * 100).toFixed(1)}%`,
+            expectedReturn: `${(profitRate * 100).toFixed(1)}%`,
+            profitRate: profitRate,
             totalValue: data.totalTokens,
           });
+
+          // Fetch orderbook after getting bond code
+          if (data.code) {
+            fetchOrderBook(data.code);
+          }
         } else {
-          // Fallback to mock data if bond not found
           setBond({
             id: bondId,
             name: 'Government Sukuk 2026',
             code: 'US092189AC02',
             issuer: 'Ministry of Finance',
             maturityDate: 'December 31, 2026',
-            expectedReturn: '5% annually',
+            expectedReturn: '5%',
+            profitRate: 0.05,
             totalValue: 1000000,
           });
         }
       } catch (error) {
-        // Fallback to mock data on error
         setBond({
           id: bondId,
           name: 'Government Sukuk 2026',
           code: 'US092189AC02',
           issuer: 'Ministry of Finance',
           maturityDate: 'December 31, 2026',
-          expectedReturn: '5% annually',
+          expectedReturn: '5%',
+          profitRate: 0.05,
           totalValue: 1000000,
         });
       } finally {
@@ -109,21 +155,24 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
       </Card>
 
       {/* Price Chart */}
-      <PriceChart 
-        bondId={bond.id} 
+      <PriceChart
+        bondId={bond.id}
+        basePrice={lowestSellPrice}
+        profitRate={bond.profitRate}
         onPriceUpdate={setCurrentPrice}
       />
 
       {/* Order Book */}
-      <OrderBook 
-        bondId={bond.id}
+      <OrderBook
+        bondCode={bond.code}
         currentPrice={currentPrice}
       />
 
       {/* Purchase Section */}
-      <PurchaseSection 
+      <PurchaseSection
         bond={bond}
-        currentPrice={currentPrice}
+        currentPrice={lowestSellPrice}
+        availableTokens={availableTokens}
       />
     </div>
   );

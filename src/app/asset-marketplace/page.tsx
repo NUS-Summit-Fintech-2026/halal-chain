@@ -16,6 +16,7 @@ interface RealAsset {
   status: 'DRAFT' | 'PUBLISHED' | 'REALIZED';
   profitRate: number;
   currentValuationXrp: number | null;
+  fileUrl: string | null;
   issuerAddress: string;
   treasuryAddress: string;
   createdAt: string;
@@ -53,6 +54,25 @@ export default function RealAssetMarketplacePage() {
   };
 
   const columns = [
+    {
+      title: 'Image',
+      dataIndex: 'fileUrl',
+      key: 'fileUrl',
+      render: (value: string | null) => value ? (
+        <img
+          src={value}
+          alt="Asset"
+          style={{
+            width: 60,
+            height: 60,
+            objectFit: 'cover',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
+          onClick={() => window.open(value, '_blank')}
+        />
+      ) : '-',
+    },
     {
       title: 'Asset Name',
       dataIndex: 'name',

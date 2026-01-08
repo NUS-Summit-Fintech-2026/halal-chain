@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, Button, Space, Typography, Spin } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, use, useCallback } from 'react';
 import PriceChart from '@/app/component/pricechart';
@@ -22,6 +22,7 @@ interface BondDetails {
   totalValue: number;
   currencyCode: string;
   issuerAddress: string;
+  fileUrl?: string;
 }
 
 interface SellOrder {
@@ -87,17 +88,28 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
         if (res.ok) {
           const data = await res.json();
           const profitRate = data.profitRate;
+          // Format maturity date if available
+          let maturityDateStr = 'TBD';
+          if (data.maturityAt) {
+            const maturityDate = new Date(data.maturityAt);
+            maturityDateStr = maturityDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            });
+          }
           setBond({
             id: data.id,
             name: data.name,
             code: data.code,
             issuer: 'Issuer',
-            maturityDate: data.maturityDate || 'TBD',
+            maturityDate: maturityDateStr,
             expectedReturn: `${(profitRate * 100).toFixed(1)}%`,
             profitRate: profitRate,
             totalValue: data.totalTokens,
             currencyCode: data.currencyCode,
             issuerAddress: data.issuerAddress,
+            fileUrl: data.fileUrl,
           });
 
           // Fetch orderbook after getting bond data
@@ -164,8 +176,20 @@ export default function BondTradePage({ params }: { params: Promise<{ bondId: st
         {/* Bond Header */}
         <Card style={{ marginBottom: 24 }}>
           <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <Title level={3} style={{ margin: 0 }}>{bond.name}</Title>
-            <Text type="secondary">{bond.code} • {bond.issuer}</Text>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <Title level={3} style={{ margin: 0 }}>{bond.name}</Title>
+                <Text type="secondary">{bond.code} • {bond.issuer}</Text>
+              </div>
+              {bond.fileUrl && (
+                <Button
+                  icon={<FileTextOutlined />}
+                  onClick={() => window.open(bond.fileUrl, '_blank')}
+                >
+                  View Document
+                </Button>
+              )}
+            </div>
             <Space size="large" style={{ marginTop: 8 }}>
               <Text>Maturity: <strong>{bond.maturityDate}</strong></Text>
               <Text>Expected Return: <strong>{bond.expectedReturn}</strong></Text>

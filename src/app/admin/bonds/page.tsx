@@ -1,8 +1,9 @@
 'use client';
 
-import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Tag, Popconfirm, message, Spin, DatePicker } from 'antd';
+import { Card, Button, Table, Modal, Form, Input, InputNumber, Select, Space, Tag, Popconfirm, message, Spin, DatePicker, Upload } from 'antd';
+import type { UploadFile } from 'antd';
 import dayjs from 'dayjs';
-import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, ClockCircleOutlined, BankOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, ClockCircleOutlined, BankOutlined, UploadOutlined, FileOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminGuard from '@/app/component/AdminGuard';
@@ -32,6 +33,7 @@ export default function BondsPage() {
   const [selectedBond, setSelectedBond] = useState<Bond | null>(null);
   const [editingBond, setEditingBond] = useState<Bond | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [form] = Form.useForm();
   const [expirationForm] = Form.useForm();
 
@@ -60,6 +62,7 @@ export default function BondsPage() {
   const handleCreate = () => {
     setEditingBond(null);
     form.resetFields();
+    setFileList([]);
     setIsModalOpen(true);
   };
 
@@ -73,6 +76,17 @@ export default function BondsPage() {
       profitRate: bond.profitRate,
       maturityAt: bond.maturityAt ? dayjs(bond.maturityAt) : null,
     });
+    // Show existing file if any
+    if (bond.fileUrl) {
+      setFileList([{
+        uid: '-1',
+        name: 'Current Document',
+        status: 'done',
+        url: bond.fileUrl,
+      }]);
+    } else {
+      setFileList([]);
+    }
     setIsModalOpen(true);
   };
 
@@ -169,56 +183,60 @@ export default function BondsPage() {
       const values = await form.validateFields();
       setSubmitting(true);
 
+      // Build FormData for both create and update
+      const formData = new FormData();
+      formData.append('name', values.name);
+      formData.append('description', values.description);
+      formData.append('totalTokens', String(values.totalTokens));
+      formData.append('profitRate', String(values.profitRate));
+      if (values.maturityAt) {
+        formData.append('maturityAt', values.maturityAt.toISOString());
+      }
+      if (fileList.length > 0 && fileList[0].originFileObj) {
+        formData.append('file', fileList[0].originFileObj as File);
+      }
+
       if (editingBond) {
         // Update existing bond via API
         const res = await fetch(`/api/bonds/${editingBond.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: values.name,
-            description: values.description,
-            totalTokens: values.totalTokens,
-            profitRate: values.profitRate,
-            maturityAt: values.maturityAt ? values.maturityAt.toISOString() : null,
-          }),
+          body: formData,
         });
 
         const data = await res.json();
 
-        if (res.ok && data.ok) {
-          message.success('Bond updated successfully');
-          setIsModalOpen(false);
-          form.resetFields();
-          setEditingBond(null);
-          fetchBonds(); // Refresh list
-        } else {
+        if (!res.ok || !data.ok) {
           message.error(data.error || 'Failed to update bond');
+          return;
         }
+
+        message.success('Bond updated successfully');
+        setIsModalOpen(false);
+        form.resetFields();
+        setFileList([]);
+        setEditingBond(null);
+        fetchBonds();
       } else {
         // Create new bond via API
+        formData.append('code', values.code);
+
         const res = await fetch('/api/bonds', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: values.name,
-            description: values.description,
-            code: values.code,
-            totalTokens: values.totalTokens,
-            profitRate: values.profitRate,
-            maturityAt: values.maturityAt ? values.maturityAt.toISOString() : null,
-          }),
+          body: formData,
         });
 
         const data = await res.json();
 
-        if (res.ok && data.ok) {
-          message.success('Bond created successfully');
-          setIsModalOpen(false);
-          form.resetFields();
-          fetchBonds(); // Refresh list
-        } else {
+        if (!res.ok || !data.ok) {
           message.error(data.error || 'Failed to create bond');
+          return;
         }
+
+        message.success('Bond created successfully');
+        setIsModalOpen(false);
+        form.resetFields();
+        setFileList([]);
+        fetchBonds();
       }
     } catch (error) {
       console.error('Validation failed:', error);
@@ -267,6 +285,21 @@ export default function BondsPage() {
       dataIndex: 'currencyCode',
       key: 'currencyCode',
       render: (value: string | null) => value || '-',
+    },
+    {
+      title: 'Document',
+      dataIndex: 'fileUrl',
+      key: 'fileUrl',
+      render: (value: string | null) => value ? (
+        <Button
+          type="link"
+          icon={<FilePdfOutlined />}
+          onClick={() => window.open(value, '_blank')}
+          size="small"
+        >
+          View
+        </Button>
+      ) : '-',
     },
     {
       title: 'Status',
@@ -506,6 +539,42 @@ export default function BondsPage() {
               placeholder="Select maturity date"
               format="YYYY-MM-DD"
             />
+          </Form.Item>
+
+          <Form.Item
+            label="Document"
+            extra="Upload bond prospectus or related document (PDF, PNG, JPG, WEBP)"
+          >
+            <Upload
+              fileList={fileList}
+              beforeUpload={(file) => {
+                const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+                if (!allowed.includes(file.type)) {
+                  message.error('Only PDF, PNG, JPG, and WEBP files are allowed');
+                  return Upload.LIST_IGNORE;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                  message.error('File must be smaller than 10MB');
+                  return Upload.LIST_IGNORE;
+                }
+                // Wrap file in UploadFile object with originFileObj
+                setFileList([{
+                  uid: file.uid,
+                  name: file.name,
+                  status: 'done',
+                  originFileObj: file,
+                }]);
+                return false; // Prevent auto upload
+              }}
+              onRemove={() => {
+                setFileList([]);
+              }}
+              maxCount={1}
+            >
+              <Button icon={<UploadOutlined />}>
+                {fileList.length > 0 ? 'Replace File' : 'Select File'}
+              </Button>
+            </Upload>
           </Form.Item>
         </Form>
         </Modal>

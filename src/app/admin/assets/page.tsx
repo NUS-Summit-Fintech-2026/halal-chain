@@ -1,7 +1,8 @@
 'use client';
 
-import { Card, Button, Table, Modal, Form, Input, InputNumber, Space, Tag, Popconfirm, message, Spin } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, DollarOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Modal, Form, Input, InputNumber, Space, Tag, Popconfirm, message, Spin, Upload } from 'antd';
+import type { UploadFile } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, RocketOutlined, ReloadOutlined, EyeOutlined, DollarOutlined, UploadOutlined, FilePdfOutlined, BankOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminGuard from '@/app/component/AdminGuard';
@@ -16,6 +17,7 @@ interface RealAsset {
   status: 'DRAFT' | 'PUBLISHED' | 'REALIZED';
   profitRate: number;
   currentValuationXrp: number | null;
+  fileUrl: string | null;
   issuerAddress: string;
   treasuryAddress: string;
   createdAt: string;
@@ -30,6 +32,7 @@ export default function RealAssetManagementPage() {
   const [selectedAsset, setSelectedAsset] = useState<RealAsset | null>(null);
   const [editingAsset, setEditingAsset] = useState<RealAsset | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [form] = Form.useForm();
   const [realizationForm] = Form.useForm();
 
@@ -58,6 +61,7 @@ export default function RealAssetManagementPage() {
   const handleCreate = () => {
     setEditingAsset(null);
     form.resetFields();
+    setFileList([]);
     setIsModalOpen(true);
   };
 
@@ -71,6 +75,17 @@ export default function RealAssetManagementPage() {
       profitRate: asset.profitRate,
       currentValuationXrp: asset.currentValuationXrp,
     });
+    // Show existing file if any
+    if (asset.fileUrl) {
+      setFileList([{
+        uid: '-1',
+        name: 'Current Document',
+        status: 'done',
+        url: asset.fileUrl,
+      }]);
+    } else {
+      setFileList([]);
+    }
     setIsModalOpen(true);
   };
 
@@ -102,6 +117,15 @@ export default function RealAssetManagementPage() {
       window.open(explorerUrl, '_blank');
     } else {
       message.error('Treasury address not available');
+    }
+  };
+
+  const handleViewIssuer = (asset: RealAsset) => {
+    if (asset.issuerAddress) {
+      const explorerUrl = `https://testnet.xrpl.org/accounts/${asset.issuerAddress}`;
+      window.open(explorerUrl, '_blank');
+    } else {
+      message.error('Issuer address not available');
     }
   };
 
@@ -152,56 +176,60 @@ export default function RealAssetManagementPage() {
       const values = await form.validateFields();
       setSubmitting(true);
 
+      // Build FormData for both create and update
+      const formData = new FormData();
+      formData.append('name', values.name);
+      formData.append('description', values.description);
+      formData.append('totalTokens', String(values.totalTokens));
+      formData.append('profitRate', String(values.profitRate));
+      if (values.currentValuationXrp) {
+        formData.append('currentValuationXrp', String(values.currentValuationXrp));
+      }
+      if (fileList.length > 0 && fileList[0].originFileObj) {
+        formData.append('file', fileList[0].originFileObj as File);
+      }
+
       if (editingAsset) {
         // Update existing asset
         const res = await fetch(`/api/realassets/${editingAsset.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: values.name,
-            description: values.description,
-            totalTokens: values.totalTokens,
-            profitRate: values.profitRate,
-            currentValuationXrp: values.currentValuationXrp,
-          }),
+          body: formData,
         });
 
         const data = await res.json();
 
-        if (res.ok && data.ok) {
-          message.success('Asset updated successfully');
-          setIsModalOpen(false);
-          form.resetFields();
-          setEditingAsset(null);
-          fetchAssets();
-        } else {
+        if (!res.ok || !data.ok) {
           message.error(data.error || 'Failed to update asset');
+          return;
         }
+
+        message.success('Asset updated successfully');
+        setIsModalOpen(false);
+        form.resetFields();
+        setFileList([]);
+        setEditingAsset(null);
+        fetchAssets();
       } else {
         // Create new asset
+        formData.append('code', values.code);
+
         const res = await fetch('/api/realassets', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: values.name,
-            description: values.description,
-            code: values.code,
-            totalTokens: values.totalTokens,
-            profitRate: values.profitRate,
-            currentValuationXrp: values.currentValuationXrp,
-          }),
+          body: formData,
         });
 
         const data = await res.json();
 
-        if (res.ok && data.ok) {
-          message.success('Asset created successfully');
-          setIsModalOpen(false);
-          form.resetFields();
-          fetchAssets();
-        } else {
+        if (!res.ok || !data.ok) {
           message.error(data.error || 'Failed to create asset');
+          return;
         }
+
+        message.success('Asset created successfully');
+        setIsModalOpen(false);
+        form.resetFields();
+        setFileList([]);
+        fetchAssets();
       }
     } catch (error) {
       console.error('Validation failed:', error);
@@ -239,6 +267,25 @@ export default function RealAssetManagementPage() {
       dataIndex: 'currencyCode',
       key: 'currencyCode',
       render: (value: string | null) => value || '-',
+    },
+    {
+      title: 'Image',
+      dataIndex: 'fileUrl',
+      key: 'fileUrl',
+      render: (value: string | null) => value ? (
+        <img
+          src={value}
+          alt="Asset"
+          style={{
+            width: 60,
+            height: 60,
+            objectFit: 'cover',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
+          onClick={() => window.open(value, '_blank')}
+        />
+      ) : '-',
     },
     {
       title: 'Status',
@@ -298,6 +345,14 @@ export default function RealAssetManagementPage() {
             <>
               <Button
                 type="link"
+                icon={<BankOutlined />}
+                onClick={() => handleViewIssuer(record)}
+              >
+                View Issuer
+              </Button>
+
+              <Button
+                type="link"
                 icon={<EyeOutlined />}
                 onClick={() => handleViewTreasury(record)}
               >
@@ -317,6 +372,14 @@ export default function RealAssetManagementPage() {
 
           {record.status === 'REALIZED' && (
             <>
+              <Button
+                type="link"
+                icon={<BankOutlined />}
+                onClick={() => handleViewIssuer(record)}
+              >
+                View Issuer
+              </Button>
+
               <Button
                 type="link"
                 icon={<EyeOutlined />}
@@ -465,6 +528,42 @@ export default function RealAssetManagementPage() {
               formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={value => value!.replace(/\$\s?|(,*)/g, '')}
             />
+          </Form.Item>
+
+          <Form.Item
+            label="Asset Image"
+            extra="Upload asset image (PNG, JPG, WEBP)"
+          >
+            <Upload
+              fileList={fileList}
+              beforeUpload={(file) => {
+                const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+                if (!allowed.includes(file.type)) {
+                  message.error('Only PDF, PNG, JPG, and WEBP files are allowed');
+                  return Upload.LIST_IGNORE;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                  message.error('File must be smaller than 10MB');
+                  return Upload.LIST_IGNORE;
+                }
+                // Wrap file in UploadFile object with originFileObj
+                setFileList([{
+                  uid: file.uid,
+                  name: file.name,
+                  status: 'done',
+                  originFileObj: file,
+                }]);
+                return false; // Prevent auto upload
+              }}
+              onRemove={() => {
+                setFileList([]);
+              }}
+              maxCount={1}
+            >
+              <Button icon={<UploadOutlined />}>
+                {fileList.length > 0 ? 'Replace File' : 'Select File'}
+              </Button>
+            </Upload>
           </Form.Item>
         </Form>
       </Modal>

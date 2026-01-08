@@ -67,6 +67,7 @@ model RealAsset {
   status              AssetStatus @default(DRAFT)
   profitRate          Float
   currentValuationXrp Float?
+  fileUrl             String?
   issuerAddress       String
   treasuryAddress     String
   createdAt           DateTime    @default(now())

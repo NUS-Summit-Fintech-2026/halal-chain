@@ -23,6 +23,7 @@ interface AssetDetails {
   currencyCode: string;
   issuerAddress: string;
   currentValuationXrp: number | null;
+  fileUrl?: string;
 }
 
 interface SellOrder {
@@ -100,6 +101,7 @@ export default function AssetTradePage({ params }: { params: Promise<{ assetId: 
             currencyCode: data.currencyCode,
             issuerAddress: data.issuerAddress,
             currentValuationXrp: data.currentValuationXrp,
+            fileUrl: data.fileUrl,
           });
 
           // Fetch orderbook after getting asset data
@@ -143,18 +145,35 @@ export default function AssetTradePage({ params }: { params: Promise<{ assetId: 
 
         {/* Asset Header */}
         <Card style={{ marginBottom: 24 }}>
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <Title level={3} style={{ margin: 0 }}>{asset.name}</Title>
-            <Text type="secondary">{asset.code} • {asset.issuer}</Text>
-            <Space size="large" style={{ marginTop: 8 }}>
-              <Text>Realization: <strong>{asset.maturityDate}</strong></Text>
-              <Text>Expected Return: <strong>{asset.expectedReturn}</strong></Text>
-              <Text>Total Tokens: <strong>{asset.totalValue.toLocaleString()}</strong></Text>
-              {asset.currentValuationXrp && (
-                <Text>Valuation: <strong>{asset.currentValuationXrp.toLocaleString()} XRP</strong></Text>
-              )}
+          <div style={{ display: 'flex', gap: 24 }}>
+            {asset.fileUrl && (
+              <img
+                src={asset.fileUrl}
+                alt={asset.name}
+                style={{
+                  width: 150,
+                  height: 150,
+                  objectFit: 'cover',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+                onClick={() => window.open(asset.fileUrl, '_blank')}
+              />
+            )}
+            <Space direction="vertical" size="small" style={{ flex: 1 }}>
+              <Title level={3} style={{ margin: 0 }}>{asset.name}</Title>
+              <Text type="secondary">{asset.code} • {asset.issuer}</Text>
+              <Space size="large" style={{ marginTop: 8 }} wrap>
+                <Text>Realization: <strong>{asset.maturityDate}</strong></Text>
+                <Text>Expected Return: <strong>{asset.expectedReturn}</strong></Text>
+                <Text>Total Tokens: <strong>{asset.totalValue.toLocaleString()}</strong></Text>
+                {asset.currentValuationXrp && (
+                  <Text>Valuation: <strong>{asset.currentValuationXrp.toLocaleString()} XRP</strong></Text>
+                )}
+              </Space>
             </Space>
-          </Space>
+          </div>
         </Card>
 
         {/* Price Chart */}

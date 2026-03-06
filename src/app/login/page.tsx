@@ -1,12 +1,10 @@
 'use client';
 
-import { Card, Form, Input, Button, Typography, message, Divider } from 'antd';
-import { UserOutlined, MailOutlined, LoginOutlined, UserAddOutlined } from '@ant-design/icons';
+import { App, Form, Input, Button } from 'antd';
+import { MailOutlined, LoginOutlined, UserAddOutlined, BlockOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-
-const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,10 +12,11 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
+  const { message } = App.useApp();
 
   // Redirect if already logged in
   if (user) {
-    router.push('/');
+    router.push('/bond-marketplace');
     return null;
   }
 
@@ -30,7 +29,7 @@ export default function LoginPage() {
 
       if (result.ok) {
         message.success(isSignUp ? 'Account created successfully!' : 'Welcome back!');
-        router.push('/');
+        router.push('/bond-marketplace');
       } else {
         message.error(result.error || 'Authentication failed');
       }
@@ -47,24 +46,81 @@ export default function LoginPage() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: '#0a0a0a',
+      position: 'relative',
+      overflow: 'hidden',
       padding: 24,
     }}>
-      <Card
+      {/* Background effects */}
+      <div style={{
+        position: 'absolute',
+        width: 500,
+        height: 500,
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(0,191,99,0.08) 0%, transparent 70%)',
+        top: '-10%',
+        right: '-10%',
+        filter: 'blur(60px)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute',
+        width: 400,
+        height: 400,
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(0,191,99,0.05) 0%, transparent 70%)',
+        bottom: '-10%',
+        left: '-10%',
+        filter: 'blur(60px)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Grid pattern */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: `
+          linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)
+        `,
+        backgroundSize: '60px 60px',
+        pointerEvents: 'none',
+      }} />
+
+      <div
         style={{
           width: '100%',
           maxWidth: 420,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-          borderRadius: 12,
+          padding: 32,
+          background: 'rgba(255,255,255,0.04)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 16,
+          boxShadow: '0 8px 40px rgba(0, 0, 0, 0.3)',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-            Halal Chain
-          </Title>
-          <Text type="secondary">
+          <div style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #00bf63, #00a855)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}>
+            <BlockOutlined style={{ color: '#fff', fontSize: 22 }} />
+          </div>
+          <h2 style={{ margin: '0 0 4px', color: '#f5f5f5', fontSize: 28, fontWeight: 700 }}>
+            Amanah
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, margin: 0 }}>
             {isSignUp ? 'Create your account' : 'Sign in to continue'}
-          </Text>
+          </p>
         </div>
 
         <Form
@@ -72,6 +128,7 @@ export default function LoginPage() {
           layout="vertical"
           onFinish={handleSubmit}
           size="large"
+          className="dark-input"
         >
           <Form.Item
             name="email"
@@ -81,7 +138,7 @@ export default function LoginPage() {
             ]}
           >
             <Input
-              prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
+              prefix={<MailOutlined style={{ color: 'rgba(255,255,255,0.3)' }} />}
               placeholder="Email address"
             />
           </Form.Item>
@@ -93,18 +150,21 @@ export default function LoginPage() {
               loading={loading}
               icon={isSignUp ? <UserAddOutlined /> : <LoginOutlined />}
               block
-              style={{ height: 48 }}
+              className="green-glow-btn"
+              style={{ height: 48, borderRadius: 10, fontSize: 15, fontWeight: 600 }}
             >
               {isSignUp ? 'Create Account' : 'Sign In'}
             </Button>
           </Form.Item>
         </Form>
 
-        <Divider plain>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-          </Text>
-        </Divider>
+          </span>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+        </div>
 
         <Button
           type="link"
@@ -114,16 +174,27 @@ export default function LoginPage() {
           }}
           block
           icon={isSignUp ? <LoginOutlined /> : <UserAddOutlined />}
+          style={{ color: '#00bf63' }}
         >
           {isSignUp ? 'Sign In Instead' : 'Create Account'}
         </Button>
 
         {isSignUp && (
-          <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: 16, fontSize: 12 }}>
+          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 0 }}>
             A new XRPL wallet will be automatically created for you with test funds.
-          </Text>
+          </p>
         )}
-      </Card>
+
+        <div style={{ textAlign: 'center', marginTop: 24 }}>
+          <Button
+            type="link"
+            onClick={() => router.push('/')}
+            style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, padding: 0 }}
+          >
+            Back to Home
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

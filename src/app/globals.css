@@ -3,6 +3,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --amanah-black: #0a0a0a;
+  --amanah-dark: #111111;
+  --amanah-dark-2: #1a1a1a;
+  --amanah-green: #00bf63;
+  --amanah-green-dark: #00a855;
+  --amanah-green-glow: rgba(0, 191, 99, 0.15);
+  --amanah-text: #f5f5f5;
+  --amanah-text-muted: rgba(255, 255, 255, 0.6);
+  --amanah-glass: rgba(255, 255, 255, 0.05);
+  --amanah-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
@@ -12,15 +22,160 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ===== Landing Page Animations ===== */
+
+@keyframes heroGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 191, 99, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(0, 191, 99, 0.25); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Landing page classes */
+.landing-hero {
+  background: linear-gradient(135deg, #0a0a0a 0%, #0d1f12 25%, #0a0a0a 50%, #0a1a0f 75%, #0a0a0a 100%);
+  background-size: 400% 400%;
+  animation: heroGradient 15s ease infinite;
+}
+
+.landing-fade-in {
+  animation: fadeInUp 0.8s ease-out forwards;
+  opacity: 0;
+}
+
+.landing-fade-in-delay-1 { animation-delay: 0.1s; }
+.landing-fade-in-delay-2 { animation-delay: 0.2s; }
+.landing-fade-in-delay-3 { animation-delay: 0.3s; }
+.landing-fade-in-delay-4 { animation-delay: 0.4s; }
+.landing-fade-in-delay-5 { animation-delay: 0.5s; }
+
+.landing-float { animation: float 6s ease-in-out infinite; }
+.landing-float-slow { animation: floatSlow 8s ease-in-out infinite; }
+.landing-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(0, 191, 99, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 191, 99, 0.1);
+  transform: translateY(-4px);
+}
+
+.green-glow-btn {
+  background: linear-gradient(135deg, #00bf63 0%, #00a855 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(0, 191, 99, 0.3);
+  transition: all 0.3s ease !important;
+}
+
+.green-glow-btn:hover {
+  box-shadow: 0 6px 30px rgba(0, 191, 99, 0.5) !important;
+  transform: translateY(-2px);
+}
+
+.landing-section {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Decorative orb elements */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.orb-green {
+  background: radial-gradient(circle, rgba(0, 191, 99, 0.3) 0%, transparent 70%);
+}
+
+.orb-dark {
+  background: radial-gradient(circle, rgba(0, 100, 50, 0.2) 0%, transparent 70%);
+}
+
+/* Responsive: hide connectors on mobile */
+@media (max-width: 768px) {
+  .step-connector::after {
+    display: none;
+  }
+}
+
+/* Dark theme input overrides for login */
+.dark-input .ant-input,
+.dark-input .ant-input-affix-wrapper {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f5f5f5 !important;
+}
+
+.dark-input .ant-input::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.dark-input .ant-input-affix-wrapper:hover,
+.dark-input .ant-input-affix-wrapper:focus,
+.dark-input .ant-input-affix-wrapper-focused {
+  border-color: #00bf63 !important;
+}
+
+/* Shimmer text effect */
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    #f5f5f5 0%,
+    #00bf63 40%,
+    #f5f5f5 60%,
+    #f5f5f5 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s linear infinite;
 }

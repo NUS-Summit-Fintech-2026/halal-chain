@@ -84,7 +84,7 @@ export default function Sidebar() {
   const isUserLoginPage = pathname === '/login';
 
   // Don't render sidebar on login pages
-  if (isAdminLoginPage || isUserLoginPage) {
+  if (isAdminLoginPage || isUserLoginPage || pathname === '/') {
     return null;
   }
 
@@ -207,7 +207,7 @@ export default function Sidebar() {
           color: isAdminRoute ? '#fff' : '#1890ff',
           letterSpacing: '0.5px',
         }}>
-          {isAdminRoute ? 'Admin Portal' : 'Halal Chain'}
+          {isAdminRoute ? 'Admin Portal' : 'Amanah'}
         </h2>
       </div>
 

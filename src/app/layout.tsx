@@ -59,8 +59,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Halal Chain",
-  description: "Bond management system",
+  title: "Amanah",
+  description: "Shariah-compliant tokenization platform on XRPL",
 };
 
 export default function RootLayout({

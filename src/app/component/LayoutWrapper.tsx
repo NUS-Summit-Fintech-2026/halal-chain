@@ -12,7 +12,7 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
 
   // Check if we're on a login page
-  const isLoginPage = pathname === '/login' || pathname === '/admin/login';
+  const isLoginPage = pathname === '/login' || pathname === '/admin/login' || pathname === '/';
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

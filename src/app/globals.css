@@ -164,6 +164,92 @@ body {
   border-color: #00bf63 !important;
 }
 
+/* ===== Dark theme AntD overrides for inner pages ===== */
+
+/* Dark InputNumber */
+.dark-input-number .ant-input-number,
+.dark-input-number.ant-input-number {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f5f5f5 !important;
+  border-radius: 10px !important;
+}
+
+.dark-input-number .ant-input-number-input,
+.dark-input-number.ant-input-number .ant-input-number-input {
+  color: #f5f5f5 !important;
+  background: transparent !important;
+}
+
+.dark-input-number.ant-input-number:hover,
+.dark-input-number.ant-input-number-focused {
+  border-color: #00bf63 !important;
+  box-shadow: 0 0 0 2px rgba(0, 191, 99, 0.1) !important;
+}
+
+/* AntD Select dark theme */
+.ant-select-selector {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f5f5f5 !important;
+}
+
+.ant-select-selection-item {
+  color: #f5f5f5 !important;
+}
+
+.ant-select:hover .ant-select-selector {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: #00bf63 !important;
+  box-shadow: 0 0 0 2px rgba(0, 191, 99, 0.1) !important;
+}
+
+.ant-select-dropdown {
+  background: #1a1a1a !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+}
+
+.ant-select-item {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.ant-select-item-option-active,
+.ant-select-item-option-selected {
+  background: rgba(0, 191, 99, 0.1) !important;
+  color: #00bf63 !important;
+}
+
+.ant-select-arrow {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* AntD message dark override */
+.ant-message-notice-content {
+  background: #1a1a1a !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+}
+
+/* AntD Spin dark override */
+.ant-spin-dot-item {
+  background: #00bf63 !important;
+}
+
+/* AntD Modal dark overrides */
+.ant-modal-close {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.ant-modal-close:hover {
+  color: #f5f5f5 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
 /* Shimmer text effect */
 .shimmer-text {
   background: linear-gradient(

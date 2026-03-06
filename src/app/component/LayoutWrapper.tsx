@@ -15,9 +15,9 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   const isLoginPage = pathname === '/login' || pathname === '/admin/login' || pathname === '/';
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100vh', background: '#0a0a0a' }}>
       <Sidebar />
-      <Layout style={{ marginLeft: isLoginPage ? 0 : 220 }}>
+      <Layout style={{ marginLeft: isLoginPage ? 0 : 240, background: '#0a0a0a' }}>
         {children}
       </Layout>
     </Layout>

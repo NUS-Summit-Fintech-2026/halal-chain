@@ -1,6 +1,6 @@
 'use client';
 
-import { Layout, Menu, Button, Typography, message, Avatar, Modal, Descriptions, Tooltip } from 'antd';
+import { Button, message, Modal, Tooltip } from 'antd';
 import {
   HomeOutlined,
   BankOutlined,
@@ -12,19 +12,16 @@ import {
   ShopOutlined,
   HeartOutlined,
   TeamOutlined,
-  IdcardOutlined,
-  LoginOutlined,
   SettingOutlined,
   CopyOutlined,
   CheckOutlined,
+  BlockOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdminAuth } from '@/context/AdminAuthContext';
-
-const { Sider } = Layout;
-const { Text } = Typography;
 
 export default function Sidebar() {
   const router = useRouter();
@@ -50,424 +47,441 @@ export default function Sidebar() {
       message.error('Please sign in to view your wallet');
       return;
     }
-
     try {
-      const res = await fetch('/api/me/wallet', {
-        headers: {
-          ...getAuthHeader(),
-        },
-      });
-
+      const res = await fetch('/api/me/wallet', { headers: { ...getAuthHeader() } });
       const data = await res.json();
-
       if (res.ok && data.ok) {
         window.open(data.explorerUrl, '_blank');
       } else {
         message.error(data.error || 'Failed to get wallet info');
       }
-    } catch (error) {
+    } catch {
       message.error('Network error');
     }
   };
 
-  const handleMenuClick = ({ key }: { key: string }) => {
-    if (key === 'wallet') {
-      handleOpenWallet();
-    } else {
-      router.push(key);
-    }
-  };
-
-  // Check if we're on an admin route
   const isAdminRoute = pathname.startsWith('/admin');
   const isAdminLoginPage = pathname === '/admin/login';
   const isUserLoginPage = pathname === '/login';
 
-  // Don't render sidebar on login pages
-  if (isAdminLoginPage || isUserLoginPage || pathname === '/') {
-    return null;
-  }
+  if (isAdminLoginPage || isUserLoginPage || pathname === '/') return null;
 
-  const adminMenuItems = [
-    {
-      key: 'admin-group',
-      type: 'group' as const,
-      label: (
-        <span style={{ color: '#8c8c8c', fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>
-          ADMIN
-        </span>
-      ),
-      children: [
-        {
-          key: '/admin/bonds',
-          icon: <BankOutlined />,
-          label: 'Manage Bonds',
-        },
-        {
-          key: '/admin/assets',
-          icon: <GoldOutlined />,
-          label: 'Manage Real Assets',
-        },
-        {
-          key: '/admin/charities',
-          icon: <TeamOutlined />,
-          label: 'Manage Charities',
-        },
-      ],
-    },
+  const BG = isAdminRoute ? '#0d0d1a' : '#0a0a0a';
+  const BORDER = isAdminRoute ? 'rgba(100, 100, 200, 0.15)' : 'rgba(255,255,255,0.07)';
+
+  const userNavItems = [
+    { key: '/', icon: <HomeOutlined />, label: 'Home' },
+    { key: '/bond-marketplace', icon: <BankOutlined />, label: 'Bond Marketplace', group: 'MARKETPLACE' },
+    { key: '/asset-marketplace', icon: <ShopOutlined />, label: 'Asset Marketplace', group: 'MARKETPLACE' },
+    { key: '/zakat', icon: <HeartOutlined />, label: 'Zakat Donation', group: 'MARKETPLACE' },
   ];
 
-  const userMenuItems = [
-    {
-      key: 'user-group',
-      type: 'group' as const,
-      label: (
-        <span style={{ color: '#8c8c8c', fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>
-          MARKETPLACE
-        </span>
-      ),
-      children: [
-        {
-          key: '/bond-marketplace',
-          icon: <DollarOutlined />,
-          label: 'Bond Marketplace',
-        },
-        {
-          key: '/asset-marketplace',
-          icon: <ShopOutlined />,
-          label: 'Asset Marketplace',
-        },
-        {
-          key: '/zakat',
-          icon: <HeartOutlined />,
-          label: 'Zakat Donation',
-        },
-        ...(user ? [{
-          key: 'wallet',
-          icon: <WalletOutlined />,
-          label: 'My Wallet',
-        }] : []),
-      ],
-    },
+  const adminNavItems = [
+    { key: '/admin/bonds', icon: <BankOutlined />, label: 'Manage Bonds', group: 'ADMIN' },
+    { key: '/admin/assets', icon: <GoldOutlined />, label: 'Manage Real Assets', group: 'ADMIN' },
+    { key: '/admin/charities', icon: <TeamOutlined />, label: 'Manage Charities', group: 'ADMIN' },
   ];
 
-  // Determine which menu items to show
-  const getMenuItems = () => {
-    if (isAdminRoute) {
-      // On admin routes, show only admin menu (no Home)
-      return [...adminMenuItems];
-    } else if (user) {
-      // Logged in user, show only marketplace menu
-      return [
-        {
-          key: '/',
-          icon: <HomeOutlined />,
-          label: 'Home',
-        },
-        ...userMenuItems,
-      ];
-    } else {
-      // Not logged in, show both (so they can navigate to admin)
-      return [
-        {
-          key: '/',
-          icon: <HomeOutlined />,
-          label: 'Home',
-        },
-        ...adminMenuItems,
-        ...userMenuItems,
-      ];
-    }
-  };
+  const navItems = isAdminRoute ? adminNavItems : userNavItems;
+
+  const isActive = (key: string) => pathname === key || (key !== '/' && pathname.startsWith(key));
 
   return (
-    <Sider
-      width={240}
-      theme="light"
-      style={{
+    <>
+      <div style={{
+        width: 240,
         height: '100vh',
         position: 'fixed',
         left: 0,
-        boxShadow: '2px 0 8px rgba(0, 0, 0, 0.06)',
-        background: isAdminRoute ? '#1a1a2e' : '#fafafa',
+        top: 0,
+        background: BG,
+        borderRight: `1px solid ${BORDER}`,
         display: 'flex',
         flexDirection: 'column',
-      }}
-    >
-      {/* Logo/Brand Section */}
-      <div style={{
-        padding: '24px 20px',
-        borderBottom: isAdminRoute ? '1px solid #2d2d44' : '1px solid #e8e8e8',
-        marginBottom: '8px',
+        zIndex: 100,
       }}>
-        <h2 style={{
-          margin: 0,
-          fontSize: '18px',
-          fontWeight: 600,
-          color: isAdminRoute ? '#fff' : '#1890ff',
-          letterSpacing: '0.5px',
-        }}>
-          {isAdminRoute ? 'Admin Portal' : 'Amanah'}
-        </h2>
-      </div>
-
-      <Menu
-        mode="inline"
-        selectedKeys={[pathname]}
-        onClick={handleMenuClick}
-        theme={isAdminRoute ? 'dark' : 'light'}
-        style={{
-          border: 'none',
-          background: 'transparent',
-          flex: 1,
-        }}
-        items={getMenuItems()}
-      />
-
-      {/* Admin Section - Show on admin routes */}
-      {isAdminRoute && !isAdminLoginPage && (
+        {/* Logo */}
         <div style={{
-          padding: '16px',
-          borderTop: '1px solid #2d2d44',
-          background: '#1a1a2e',
+          padding: '24px 20px',
+          borderBottom: `1px solid ${BORDER}`,
         }}>
-          {adminLoading ? (
-            <div style={{ textAlign: 'center', padding: 8, color: '#fff' }}>Loading...</div>
-          ) : admin ? (
-            <div>
-              {/* Admin Profile Card */}
-              <div style={{
-                background: '#2d2d44',
-                borderRadius: 8,
-                padding: '12px',
-                marginBottom: 12,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Avatar
-                    size={40}
-                    icon={<SettingOutlined />}
-                    style={{ backgroundColor: '#1890ff', flexShrink: 0 }}
-                  />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: isAdminRoute
+                ? 'linear-gradient(135deg, #4060ff, #2040cc)'
+                : 'linear-gradient(135deg, #00bf63, #00a855)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {isAdminRoute
+                ? <SettingOutlined style={{ color: '#fff', fontSize: 15 }} />
+                : <BlockOutlined style={{ color: '#fff', fontSize: 15 }} />}
+            </div>
+            <span style={{ fontSize: 16, fontWeight: 700, color: '#f5f5f5', letterSpacing: '-0.3px' }}>
+              {isAdminRoute ? 'Admin Portal' : 'Amanah'}
+            </span>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '16px 12px', overflow: 'auto' }}>
+          {navItems.map((item, i) => {
+            const showGroup = item.group && (i === 0 || navItems[i - 1]?.group !== item.group);
+            const active = isActive(item.key);
+            return (
+              <div key={item.key}>
+                {showGroup && (
+                  <div style={{
+                    padding: '12px 8px 6px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '1.5px',
+                    color: 'rgba(255,255,255,0.25)',
+                    textTransform: 'uppercase',
+                    marginTop: i === 0 ? 0 : 8,
+                  }}>
+                    {item.group}
+                  </div>
+                )}
+                <button
+                  onClick={() => router.push(item.key)}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: active ? 600 : 400,
+                    color: active ? '#f5f5f5' : 'rgba(255,255,255,0.5)',
+                    background: active
+                      ? (isAdminRoute ? 'rgba(64, 96, 255, 0.15)' : 'rgba(0, 191, 99, 0.12)')
+                      : 'transparent',
+                    borderLeft: active
+                      ? `2px solid ${isAdminRoute ? '#4060ff' : '#00bf63'}`
+                      : '2px solid transparent',
+                    transition: 'all 0.2s',
+                    textAlign: 'left',
+                    marginBottom: 2,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+                    }
+                  }}
+                >
+                  <span style={{ color: active ? (isAdminRoute ? '#4060ff' : '#00bf63') : 'inherit', fontSize: 16 }}>
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </button>
+              </div>
+            );
+          })}
+
+          {/* Wallet button for users */}
+          {!isAdminRoute && user && (
+            <button
+              onClick={handleOpenWallet}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 400,
+                color: 'rgba(255,255,255,0.5)',
+                background: 'transparent',
+                borderLeft: '2px solid transparent',
+                transition: 'all 0.2s',
+                textAlign: 'left',
+                marginTop: 2,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+              }}
+            >
+              <span style={{ color: 'inherit', fontSize: 16 }}><WalletOutlined /></span>
+              My Wallet
+              <LinkOutlined style={{ marginLeft: 'auto', fontSize: 11, opacity: 0.5 }} />
+            </button>
+          )}
+        </nav>
+
+        {/* Bottom user section */}
+        <div style={{ borderTop: `1px solid ${BORDER}`, padding: '16px 12px' }}>
+          {isAdminRoute ? (
+            adminLoading ? null : admin ? (
+              <div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 12px',
+                  background: 'rgba(64, 96, 255, 0.08)',
+                  borderRadius: 10,
+                  marginBottom: 10,
+                }}>
+                  <div style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 8,
+                    background: 'rgba(64, 96, 255, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <SettingOutlined style={{ color: '#6080ff', fontSize: 16 }} />
+                  </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <Text
-                      strong
-                      ellipsis
-                      style={{ color: '#fff', fontSize: 13, display: 'block' }}
-                    >
+                    <div style={{ color: '#f5f5f5', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {admin.email}
-                    </Text>
-                    <Text
-                      style={{
-                        color: 'rgba(255,255,255,0.5)',
-                        fontSize: 10,
-                        display: 'block',
-                      }}
-                    >
-                      Administrator
-                    </Text>
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>Administrator</div>
                   </div>
                 </div>
+                <button
+                  onClick={adminSignOut}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '9px 12px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    color: 'rgba(255,255,255,0.5)',
+                    background: 'transparent',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,80,80,0.4)'; e.currentTarget.style.color = '#ff6060'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                >
+                  <LogoutOutlined /> Sign Out
+                </button>
               </div>
-
-              {/* Admin Logout Button */}
-              <Button
-                type="default"
-                icon={<LogoutOutlined />}
-                onClick={adminSignOut}
-                block
-                style={{ borderColor: '#2d2d44', color: '#fff', background: 'transparent' }}
-              >
-                Sign Out
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {/* User Section at Bottom - Hidden on admin routes */}
-      {!isAdminRoute && (
-        <div style={{
-          padding: '16px',
-          borderTop: '1px solid #e8e8e8',
-          background: '#fff',
-        }}>
-          {isLoading ? (
-            <div style={{ textAlign: 'center', padding: 8 }}>Loading...</div>
-          ) : user ? (
+            ) : null
+          ) : isLoading ? null : user ? (
             <div>
-              {/* User Profile Card - Clickable */}
               <div
                 onClick={() => setIsProfileModalOpen(true)}
                 style={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  borderRadius: 8,
-                  padding: '12px',
-                  marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 12px',
+                  background: 'rgba(0, 191, 99, 0.07)',
+                  borderRadius: 10,
+                  marginBottom: 10,
                   cursor: 'pointer',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  transition: 'all 0.2s',
+                  border: '1px solid rgba(0, 191, 99, 0.12)',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 191, 99, 0.12)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 191, 99, 0.07)'; }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Avatar
-                    size={40}
-                    icon={<UserOutlined />}
-                    style={{ backgroundColor: 'rgba(255,255,255,0.2)', flexShrink: 0 }}
-                  />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <Text
-                      strong
-                      ellipsis
-                      style={{ color: '#fff', fontSize: 13, display: 'block' }}
-                    >
-                      {user.email}
-                    </Text>
-                    {user.did && (
-                      <Text
-                        style={{
-                          color: 'rgba(255,255,255,0.75)',
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          display: 'block',
-                        }}
-                        ellipsis
-                      >
-                        {user.did.slice(0, 20)}...
-                      </Text>
-                    )}
-                  </div>
+                <div style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 8,
+                  background: 'rgba(0, 191, 99, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <UserOutlined style={{ color: '#00bf63', fontSize: 16 }} />
                 </div>
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 8, display: 'block' }}>
-                  Click to view profile
-                </Text>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ color: '#f5f5f5', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user.email}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>View profile</div>
+                </div>
               </div>
-
-              {/* Logout Button */}
-              <Button
-                type="default"
-                icon={<LogoutOutlined />}
+              <button
                 onClick={signOut}
-                block
-                style={{ borderColor: '#d9d9d9' }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,0.5)',
+                  background: 'transparent',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,80,80,0.4)'; e.currentTarget.style.color = '#ff6060'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
               >
-                Sign Out
-              </Button>
-
-              {/* User Profile Modal */}
-              <Modal
-                title={
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Avatar size={48} icon={<UserOutlined />} style={{ backgroundColor: '#667eea' }} />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 16 }}>User Profile</div>
-                      <div style={{ fontWeight: 400, fontSize: 12, color: '#666' }}>Your account details</div>
-                    </div>
-                  </div>
-                }
-                open={isProfileModalOpen}
-                onCancel={() => setIsProfileModalOpen(false)}
-                footer={null}
-                width={500}
-              >
-                <Descriptions
-                  column={1}
-                  bordered
-                  size="small"
-                  style={{ marginTop: 24 }}
-                  labelStyle={{ fontWeight: 600, width: 140 }}
-                >
-                  <Descriptions.Item label="Email">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text>{user.email}</Text>
-                      <Tooltip title={copiedField === 'email' ? 'Copied!' : 'Copy'}>
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={copiedField === 'email' ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
-                          onClick={() => handleCopyToClipboard(user.email, 'email')}
-                        />
-                      </Tooltip>
-                    </div>
-                  </Descriptions.Item>
-
-                  {user.did && (
-                    <Descriptions.Item label="DID">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text
-                          style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}
-                        >
-                          {user.did}
-                        </Text>
-                        <Tooltip title={copiedField === 'did' ? 'Copied!' : 'Copy DID'}>
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={copiedField === 'did' ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
-                            onClick={() => handleCopyToClipboard(user.did!, 'did')}
-                          />
-                        </Tooltip>
-                      </div>
-                    </Descriptions.Item>
-                  )}
-
-                  <Descriptions.Item label="Wallet Address">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text
-                        style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}
-                      >
-                        {user.walletAddress}
-                      </Text>
-                      <Tooltip title={copiedField === 'wallet' ? 'Copied!' : 'Copy Address'}>
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={copiedField === 'wallet' ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
-                          onClick={() => handleCopyToClipboard(user.walletAddress, 'wallet')}
-                        />
-                      </Tooltip>
-                    </div>
-                  </Descriptions.Item>
-                </Descriptions>
-
-                <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
-                  <Button
-                    type="primary"
-                    icon={<WalletOutlined />}
-                    onClick={() => {
-                      handleOpenWallet();
-                      setIsProfileModalOpen(false);
-                    }}
-                    style={{ flex: 1 }}
-                  >
-                    View Wallet on Explorer
-                  </Button>
-                </div>
-              </Modal>
+                <LogoutOutlined /> Sign Out
+              </button>
             </div>
           ) : (
-            <div style={{ textAlign: 'center' }}>
-              <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
-                Sign in to access marketplace features
-              </Text>
-              <Button
-                type="primary"
-                icon={<LoginOutlined />}
-                onClick={() => router.push('/login')}
-                block
-              >
-                Sign In
-              </Button>
-            </div>
+            <button
+              onClick={() => router.push('/login')}
+              className="green-glow-btn"
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#fff',
+              }}
+            >
+              Sign In
+            </button>
           )}
         </div>
+      </div>
+
+      {/* Profile Modal */}
+      {user && (
+        <Modal
+          title={null}
+          open={isProfileModalOpen}
+          onCancel={() => setIsProfileModalOpen(false)}
+          footer={null}
+          width={480}
+          styles={{
+            content: { background: '#111111', border: '1px solid rgba(255,255,255,0.08)', padding: 0 },
+            mask: { backdropFilter: 'blur(4px)' },
+          }}
+        >
+          {/* Modal Header */}
+          <div style={{
+            padding: '24px 24px 20px',
+            borderBottom: '1px solid rgba(255,255,255,0.07)',
+            background: 'linear-gradient(135deg, rgba(0,191,99,0.08) 0%, transparent 100%)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{
+                width: 52,
+                height: 52,
+                borderRadius: 14,
+                background: 'rgba(0, 191, 99, 0.15)',
+                border: '1px solid rgba(0, 191, 99, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <UserOutlined style={{ color: '#00bf63', fontSize: 24 }} />
+              </div>
+              <div>
+                <div style={{ color: '#f5f5f5', fontWeight: 700, fontSize: 16 }}>Your Profile</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{user.email}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Body */}
+          <div style={{ padding: 24 }}>
+            {[
+              { label: 'Email', value: user.email, field: 'email' },
+              ...(user.did ? [{ label: 'DID', value: user.did, field: 'did', mono: true }] : []),
+              { label: 'Wallet', value: user.walletAddress, field: 'wallet', mono: true },
+            ].map(({ label, value, field, mono }) => (
+              <div key={field} style={{ marginBottom: 16 }}>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>
+                  {label}
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 10,
+                }}>
+                  <span style={{
+                    flex: 1,
+                    color: '#f5f5f5',
+                    fontSize: mono ? 11 : 14,
+                    fontFamily: mono ? 'monospace' : 'inherit',
+                    wordBreak: 'break-all',
+                  }}>
+                    {value}
+                  </span>
+                  <Tooltip title={copiedField === field ? 'Copied!' : 'Copy'}>
+                    <button
+                      onClick={() => handleCopyToClipboard(value, field)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: copiedField === field ? '#00bf63' : 'rgba(255,255,255,0.3)',
+                        padding: 4,
+                        borderRadius: 6,
+                        transition: 'color 0.2s',
+                      }}
+                    >
+                      {copiedField === field ? <CheckOutlined /> : <CopyOutlined />}
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={() => { handleOpenWallet(); setIsProfileModalOpen(false); }}
+              className="green-glow-btn"
+              style={{
+                width: '100%',
+                padding: '11px',
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#fff',
+                marginTop: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <WalletOutlined /> View Wallet on Explorer
+            </button>
+          </div>
+        </Modal>
       )}
-    </Sider>
+    </>
   );
 }
